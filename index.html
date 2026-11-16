@@ -3538,6 +3538,7 @@ MODULES_OPTO.push((function(){ var c={}; for(var k in MODULO_FLEXI) c[k]=MODULO_
 const MODULO_SUMAS = {
   title:"SUMÁS: Programa de Lealtad y Reactivación", icon:"⭐",
   category:"lealtad", chain:"lealtad", quizCount:20,
+  opcionesAleatorias:true,   // la respuesta correcta cambia de letra en cada intento
   requisitos:"sumas",   // el quiz se libera al ver los 7 videos y recorrer la guía (ver bloque «REQUISITOS SUMÁS»)
   content:`
     <h2>SUMÁS: que el cliente vuelva</h2>
@@ -4564,6 +4565,23 @@ function startQuiz() {
   const quizCount = mod.quizCount || 10;
   const shuffledQuiz = [...bank].sort(() => Math.random() - 0.5);
   mod.quiz = shuffledQuiz.slice(0, quizCount);
+  // Opciones en orden aleatorio por usuario y por intento, en TODOS los quizzes.
+  // Excepciones: los módulos de inglés (su motor english-quiz-v2.js ya revuelve las opciones)
+  // y cualquier módulo al que se le ponga opcionesAleatorias:false.
+  // Se revuelve una COPIA de cada pregunta: el banco original no se toca.
+  if (mod.opcionesAleatorias !== false && mod.category !== 'ingles') {
+    mod.quiz = mod.quiz.map(function(q){
+      var orden = q.opts.map(function(_, i){ return i; });
+      for (var i = orden.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var tmp = orden[i]; orden[i] = orden[j]; orden[j] = tmp;
+      }
+      var copia = {}; for (var k in q) copia[k] = q[k];
+      copia.opts = orden.map(function(i){ return q.opts[i]; });
+      copia.c = orden.indexOf(q.c);
+      return copia;
+    });
+  }
   document.getElementById('quiz-module-title').textContent = `Quiz: ${mod.title}`;
   document.getElementById('quiz-subtitle').textContent = `${mod.quiz.length} preguntas sobre este módulo` + (mod.passingScore ? ` · mínimo para aprobar: ${mod.passingScore}%` : '');
   document.getElementById('topbar-title').textContent = `Quiz — ${mod.title}`;
@@ -4922,6 +4940,7 @@ init();
     id: 28,
     title: "Ovvo Optics", icon: "👓",
     category: "aros", chain: "aros", quizCount: 12,
+    opcionesAleatorias: true,   // la respuesta correcta cambia de letra en cada intento
     content: `
     <h2>OVVO Optics: el aro que resiste</h2>
     <img class="ovvo-hero" src="${FOTO.ss6067}" alt="Aro OVVO de acero quirúrgico y titanio">
