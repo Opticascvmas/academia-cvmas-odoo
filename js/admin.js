@@ -894,7 +894,7 @@ function renderShell(d) {
       </div>
       <div class="cvp-head-actions">
         <button class="cvp-btn gold" onclick="cvpReporteDireccion()">${cvxIco('reporte', 16)} Reporte para dirección</button>
-        ${currentCanEdit() ? `<button class="cvp-btn ghost" onclick="window.open('herramientas/crear-usuarios.html','_blank')" title="Crear usuarios en Firebase desde un Excel">＋ Alta masiva</button><button class="cvp-btn ghost" onclick="cvxRegistrarNotas()" title="Registrar notas de quiz que no se guardaron">📝 Registrar notas</button>` : ''}
+        ${currentCanEdit() ? `<button class="cvp-btn ghost" onclick="window.open('herramientas/crear-usuarios.html','_blank')" title="Crear usuarios en Firebase desde un Excel">＋ Alta masiva</button><button class="cvp-btn ghost" onclick="cvxRegistrarNotas()" title="Registrar notas de quiz que no se guardaron">📝 Registrar notas</button><button class="cvp-btn ghost" onclick="cvxFusionarCuentas()" title="Pasar notas, historial y avance de una cuenta duplicada a otra">🔀 Fusionar cuentas</button>` : ''}
         <button class="cvp-btn ghost" onclick="openAdminPanel(true)" title="Volver a descargar los datos de Firebase">↻ Actualizar</button>
         <button class="cvp-btn ghost" onclick="cvpExportXLSX()">Excel</button>
         <button class="cvp-btn close" onclick="closeAdminPanel()">✕ Cerrar</button>
@@ -1912,6 +1912,168 @@ window.cvxRegistrarNotas = function () {
       cerrar();
       alert(`✅ ${hechos} nota${hechos > 1 ? "s" : ""} registrada${hechos > 1 ? "s" : ""}.`);
       openAdminPanel(true);
+    }
+  };
+};
+
+
+/* ---------- FUSIONAR CUENTAS (misma persona con dos usuarios) ----------
+   Pasa notas (quiz_scores), historial (quiz_history) y avance (progress) de la
+   cuenta ORIGEN a la cuenta DESTINO. Si un módulo está en las dos, se juntan
+   todos los intentos. Opcionalmente elimina la cuenta origen al terminar
+   (igual que el botón 🗑️ de Usuarios) y deja constancia en admin_logs. */
+function cvxUnirModulo(a, b) {
+  const norm = e => typeof e === "number" ? { attempts: 1, scores: [e], lastScore: e, average: e } : (e || {});
+  if (!a) return norm(b);
+  if (!b) return norm(a);
+  a = norm(a); b = norm(b);
+  const [antes, despues] = (a.lastActivity || "") <= (b.lastActivity || "") ? [a, b] : [b, a];
+  const lista = [...(antes.scores || []), ...(despues.scores || [])];
+  return Object.assign({}, antes, despues, {
+    attempts: (a.attempts || 0) + (b.attempts || 0),
+    scores: lista,
+    lastScore: despues.lastScore != null ? despues.lastScore : lista[lista.length - 1],
+    average: lista.length ? Math.round(lista.reduce((x, y) => x + y, 0) / lista.length) : 0,
+    lastActivity: despues.lastActivity || antes.lastActivity
+  });
+}
+function cvxUnirAvance(x, y) {
+  if (x && y && typeof x === "object" && typeof y === "object") {
+    const r = Object.assign({}, x);
+    Object.keys(y).forEach(k => { r[k] = k in x ? cvxUnirAvance(x[k], y[k]) : y[k]; });
+    return r;
+  }
+  if (x === true || y === true) return true;
+  return y !== undefined ? y : x;
+}
+window.cvxFusionarCuentas = function () {
+  if (!currentCanEdit()) return;
+  const vieja = document.getElementById("cvxFus"); if (vieja) vieja.remove();
+  const lista = CVP.users.slice().sort((a, b) => (a.name || a.email || "").localeCompare(b.name || b.email || "", "es", { sensitivity: "base" }));
+  const opciones = filtro => {
+    const q = cvxNorm(filtro);
+    return `<option value="">— Elige una cuenta —</option>` + lista
+      .filter(u => !q || cvxNorm((u.name || "") + " " + (u.email || "")).includes(q))
+      .map(u => `<option value="${u.id}">${esc(u.name || u.email)} — ${esc(u.email || "sin correo")} · ${esc(cvxSucursal(u.branch))}</option>`).join("");
+  };
+  const m = document.createElement("div"); m.id = "cvxFus";
+  m.innerHTML = `
+    <div class="cvx-reg-box" role="dialog" aria-modal="true">
+      <div class="cvx-reg-top"><h3>🔀 Fusionar cuentas</h3><button class="cvp-btn ghost dark" type="button" id="cvxFusX">✕</button></div>
+      <p class="cvp-muted">Para cuando una misma persona tiene dos usuarios. Todas las notas, el historial de quizzes y el avance de la cuenta <b>que se elimina</b> pasan a la cuenta <b>que se queda</b>. Si las dos hicieron el mismo módulo, se juntan todos los intentos.</p>
+      <div class="cvx-reg-campos" style="grid-template-columns:1fr 1fr">
+        <label class="cvx-fus-sel">1. Cuenta que se elimina (origen)
+          <input id="cvxFusQO" placeholder="🔍 Buscar nombre o correo…">
+          <select id="cvxFusO">${opciones("")}</select></label>
+        <label class="cvx-fus-sel">2. Cuenta que se queda (destino)
+          <input id="cvxFusQD" placeholder="🔍 Buscar nombre o correo…">
+          <select id="cvxFusD">${opciones("")}</select></label>
+      </div>
+      <label style="display:flex;gap:8px;align-items:center;font-weight:500"><input type="checkbox" id="cvxFusDel" checked style="width:auto"> Eliminar la cuenta de origen al terminar (recomendado)</label>
+      <div class="cvx-reg-acc"><button class="cvp-btn ghost dark" type="button" id="cvxFusRev">Revisar</button><span class="cvp-muted" id="cvxFusRes"></span><button class="cvp-btn gold" type="button" id="cvxFusOk" disabled>Fusionar</button></div>
+      <div id="cvxFusPrev"></div>
+    </div>`;
+  document.body.appendChild(m);
+  const $ = s => m.querySelector(s);
+  let plan = null;
+  const invalidar = () => { plan = null; $("#cvxFusOk").disabled = true; $("#cvxFusPrev").innerHTML = ""; $("#cvxFusRes").textContent = ""; };
+  [["#cvxFusQO", "#cvxFusO"], ["#cvxFusQD", "#cvxFusD"]].forEach(([q, s]) => {
+    $(q).addEventListener("input", () => { const v = $(s).value; $(s).innerHTML = opciones($(q).value); $(s).value = v; invalidar(); });
+    $(s).addEventListener("change", invalidar);
+  });
+  $("#cvxFusX").onclick = () => m.remove();
+
+  $("#cvxFusRev").onclick = async () => {
+    invalidar();
+    const oId = $("#cvxFusO").value, dId = $("#cvxFusD").value;
+    if (!oId || !dId) { $("#cvxFusRes").textContent = "Elige las dos cuentas."; return; }
+    if (oId === dId) { $("#cvxFusRes").textContent = "Elegiste la misma cuenta dos veces."; return; }
+    const o = CVP.users.find(u => u.id === oId), d = CVP.users.find(u => u.id === dId);
+    $("#cvxFusRes").textContent = "Revisando…";
+    try {
+      const f = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+      const leer = async (c, id) => { const s = await f.getDoc(f.doc(window.db, c, id)); return s.exists() ? s.data() : {}; };
+      const sO = (await leer("quiz_scores", oId)).scores || {}, sD = (await leer("quiz_scores", dId)).scores || {};
+      let pO = {}, pD = {};
+      try { pO = await leer("progress", oId); pD = await leer("progress", dId); } catch (e) {}
+      const hs = await f.getDocs(f.query(f.collection(window.db, "quiz_history"), f.where("uid", "==", oId)));
+      const fus = Object.assign({}, sD);
+      Object.keys(sO).forEach(k => { fus[k] = cvxUnirModulo(sO[k], sD[k]); });
+      const vals = Object.values(fus);
+      const proms = vals.map(q => typeof q === "number" ? q : (q.average || 0));
+      const stats = {
+        totalQuizzes: vals.length,
+        overallAverage: proms.length ? Math.round(proms.reduce((a, b) => a + b, 0) / proms.length) : 0,
+        totalAttempts: vals.reduce((a, q) => a + (typeof q === "number" ? 0 : (q.attempts || 0)), 0),
+        updatedAt: new Date().toISOString()
+      };
+      const avance = { progress: cvxUnirAvance(pO.progress || {}, pD.progress || {}), sumas: cvxUnirAvance(pO.sumas || {}, pD.sumas || {}) };
+      plan = { f, o, d, fus, stats, avance, hist: hs.docs };
+      const nombre = k => moduleName(k);
+      const filas = Object.keys(fus).sort((a, b) => Number(a) - Number(b)).map(k => {
+        const x = sO[k], y = sD[k], z = fus[k];
+        const t = e => e ? `${typeof e === "number" ? e : e.lastScore}% · ${typeof e === "number" ? 1 : (e.attempts || 0)} int.` : "—";
+        return `<tr><td>${esc(k)}. ${esc(nombre(k))}</td><td class="num">${t(x)}</td><td class="num">${t(y)}</td><td class="num"><span class="cvx-chip ${cvxTone(z.lastScore || 0)}">${t(z)}</span></td></tr>`;
+      }).join("");
+      $("#cvxFusPrev").innerHTML = `
+        <p><b>${esc(o.name || o.email)}</b> (${esc(o.email || "")}) → <b>${esc(d.name || d.email)}</b> (${esc(d.email || "")})</p>
+        <p>Se copiarán <b>${hs.size}</b> registros de historial. Quedará con <b>${stats.totalQuizzes}</b> módulos, <b>${stats.totalAttempts}</b> intentos y promedio general de <b>${stats.overallAverage}%</b>.</p>
+        ${(o.position && d.position && o.position !== d.position) ? `<p class="cvx-reg-err">Ojo: los puestos son distintos (${esc(o.position)} / ${esc(d.position)}). La cuenta que se queda conserva «${esc(d.position)}»; corrígelo después en Usuarios si hace falta.</p>` : ""}
+        <div class="cvx-tablewrap"><table class="cvx-table"><thead><tr><th>Módulo</th><th class="num">Origen</th><th class="num">Destino</th><th class="num">Resultado</th></tr></thead><tbody>${filas || '<tr><td colspan="4" class="cvp-empty">La cuenta de origen no tiene notas.</td></tr>'}</tbody></table></div>`;
+      $("#cvxFusRes").textContent = "Revisa el resumen y presiona Fusionar.";
+      $("#cvxFusOk").disabled = false;
+    } catch (e) {
+      console.error(e);
+      $("#cvxFusRes").textContent = "No se pudo revisar (" + (e.code || e.message) + ").";
+    }
+  };
+
+  $("#cvxFusOk").onclick = async () => {
+    if (!plan) return;
+    const { f, o, d, fus, stats, avance, hist } = plan;
+    const borrar = $("#cvxFusDel").checked;
+    if (!confirm(`¿Pasar todo de ${o.email} a ${d.email}?` + (borrar ? `\n\nLa cuenta ${o.email} se eliminará al terminar. No se puede deshacer.` : ""))) return;
+    $("#cvxFusOk").disabled = true; $("#cvxFusRev").disabled = true;
+    const res = $("#cvxFusRes");
+    const avisos = [];
+    try {
+      res.textContent = "Guardando notas…";
+      await f.setDoc(f.doc(window.db, "quiz_scores", d.id), { scores: fus, stats }, { merge: true });
+      res.textContent = "Guardando avance…";
+      try { await f.setDoc(f.doc(window.db, "progress", d.id), avance, { merge: true }); }
+      catch (e) { avisos.push("El avance de módulos/SUMÁS no se pudo copiar (permisos de Firestore). Las notas y el historial sí."); }
+      res.textContent = `Copiando historial (${hist.length})…`;
+      for (let i = 0; i < hist.length; i += 450) {
+        const b = f.writeBatch(window.db);
+        hist.slice(i, i + 450).forEach(h => b.set(f.doc(f.collection(window.db, "quiz_history")),
+          Object.assign({}, h.data(), { uid: d.id, email: d.email || "", fusionadoDe: o.email || o.id })));
+        await b.commit();
+      }
+      const at = new Date().toISOString(), por = window.CVP_CURRENT_EMAIL || "admin";
+      try {
+        await f.setDoc(f.doc(f.collection(window.db, "admin_logs")), { accion: "fusionar_usuarios", origenId: o.id, origen: o.email || "",
+          userId: d.id, destino: d.email || "", historial: hist.length, eliminoOrigen: borrar, changedBy: por, at });
+      } catch (e) {}
+      if (borrar) {
+        res.textContent = "Eliminando la cuenta de origen…";
+        const refs = hist.map(h => h.ref);
+        ["users", "quiz_scores", "progress", "admin_followups"].forEach(c => refs.push(f.doc(window.db, c, o.id)));
+        for (let i = 0; i < refs.length; i += 450) {
+          const b = f.writeBatch(window.db);
+          refs.slice(i, i + 450).forEach(r => b.delete(r));
+          await b.commit();
+        }
+        await f.setDoc(f.doc(window.db, "usuarios_eliminados", o.id), { email: o.email || "", name: o.name || "", branch: o.branch || "",
+          eliminadoPor: por, at, motivo: "fusionado con " + (d.email || d.id) });
+      }
+      m.remove();
+      alert(`✅ Listo: todo de ${o.email} quedó en ${d.email}.` + (avisos.length ? "\n\n⚠️ " + avisos.join("\n") : "") +
+        (borrar ? `\n\nRecuerda borrar también la cuenta ${o.email} en Firebase Console → Authentication.` : ""));
+      openAdminPanel(true);
+    } catch (e) {
+      console.error("Error al fusionar:", e);
+      res.innerHTML = `<span class="cvx-reg-err">❌ No se pudo terminar (${esc(e.code || e.message)}). Lo que alcanzó a guardarse se queda; vuelve a presionar Revisar antes de intentar de nuevo.</span>`;
+      $("#cvxFusRev").disabled = false;
     }
   };
 };
@@ -3190,7 +3352,7 @@ function injectStyles() {
 .cvx .cvx-heat td.warn,.cvx .cvx-mx tbody td.cvx-mx-c.warn,.cvx .cvx-heatlegend .warn{background:#fff6dd;color:var(--cvp-alerta)}
 .cvx .cvx-heat td.danger,.cvx .cvx-mx tbody td.cvx-mx-c.danger,.cvx .cvx-heatlegend .danger{background:#fdeaea;color:var(--cvp-critico)}
 /* Registrar notas */
-#cvxReg{position:fixed;inset:0;z-index:160000;background:rgba(55,58,54,.55);display:flex;align-items:flex-start;justify-content:center;padding:24px 16px;overflow:auto;font-family:'Poppins','Segoe UI',Arial,sans-serif}
+#cvxFus,#cvxReg{position:fixed;inset:0;z-index:160000;background:rgba(55,58,54,.55);display:flex;align-items:flex-start;justify-content:center;padding:24px 16px;overflow:auto;font-family:'Poppins','Segoe UI',Arial,sans-serif}
 .cvx-reg-box{background:#fff;color:#373a36;border-radius:18px;max-width:820px;width:100%;padding:22px;border-top:5px solid #00abc8;box-shadow:0 12px 40px rgba(0,0,0,.25);display:grid;gap:12px}
 .cvx-reg-top{display:flex;justify-content:space-between;align-items:center;gap:10px}.cvx-reg-top h3{margin:0;font-size:18px}
 .cvx-reg-box p{margin:0;font-size:13px}
@@ -3199,6 +3361,7 @@ function injectStyles() {
 .cvx-reg-box select,.cvx-reg-box input,.cvx-reg-box textarea{padding:10px;border-radius:10px;border:1px solid #dfe5e7;font:inherit;font-size:14px;width:100%;box-sizing:border-box}
 .cvx-reg-box textarea{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
 .cvx-reg-acc{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.cvx-reg-acc .cvp-muted{flex:1}
+.cvx-fus-sel{display:grid;gap:6px}.cvx-fus-sel input{margin:0}
 .cvx-reg-box tr.error td{background:#fdeaea!important}
 .cvx-reg-err{color:#d64545;font-size:12.5px}
 @media(max-width:600px){.cvx-reg-campos{grid-template-columns:1fr}}
