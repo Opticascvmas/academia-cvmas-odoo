@@ -48,6 +48,7 @@ const MODULE_NAMES = {
   "24": "Ingles Nivel 0 - Desde cero",
   "25": "Flexi-Cuotas - Proceso de credito",
   "26": "SUMAS - Programa de Lealtad y Reactivacion"
+  "28": "Ovvo Optics",
   // ...agrega o corrige los que necesites
 };
 
@@ -68,6 +69,7 @@ const MODULE_NAMES_OPTO = {
   "7": "Ingles Nivel 0 - Desde cero",
   "8": "Flexi-Cuotas - Proceso de credito",
   "9": "SUMAS - Programa de Lealtad y Reactivacion",
+ "11": "Ovvo Optics",
 };
 const TOTAL_MODULES_OPTO = Object.keys(MODULE_NAMES_OPTO).length;
 
