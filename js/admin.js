@@ -1675,8 +1675,8 @@ window.cvpToggleQuiz = function(headEl, ev) {
 /* ============================================================================
    6) OPCIONES DE SUCURSAL Y CARGO (para los selects de edición)
    ========================================================================== */
-const BRANCHES = ["Metrocentro 1","Metrocentro 2","Plaza Mundo","Metrocentro Santa Ana","Sonsonate","San Miguel","Aguilares","Apopa","Valle Dulce","San Gabriel","Metropolis","Galerias","El Paseo","Zona Rosa","El Casco","Multiplaza","Santa Rosa","Encuentro Zacatecoluca","Zacatecoluca Centro","Usulutan","San Francisco Gotera","San Martin","Unicentro Soyapango","Alta Vista","Encuentro Lourdes","Metrocentro Lourdes","Acajutla","Las Ramblas","Encuentro Santa Ana","Empresarial","SAC","Zaragoza","Puerto de La Libertad","Armenia","San Marcos","Recursos Humanos","Ventas","Mercadeo","Coberturas","Compras"];
-const POSITIONS = ["Asesor Visual","Optometra","Capacitador","Supervisor","RRHH","Asesor de Coberturas","Auxiliar","Agente SAC","Supervisor de SAC","Gestor Empresarial","Supervisor de Empresarial"];
+const BRANCHES = ["Metrocentro 1","Metrocentro 2","Plaza Mundo","Metrocentro Santa Ana","Sonsonate","San Miguel","Aguilares","Apopa","Valle Dulce","San Gabriel","Metropolis","Galerias","El Paseo","Zona Rosa","El Casco","Multiplaza","Santa Rosa","Encuentro Zacatecoluca","Zacatecoluca Centro","Usulutan","San Francisco Gotera","San Martin","Unicentro Soyapango","Alta Vista","Encuentro Lourdes","Metrocentro Lourdes","Acajutla","Las Ramblas","Encuentro Santa Ana","Empresarial","SAC","Zaragoza","Puerto de La Libertad","Armenia","San Marcos","Recursos Humanos","Ventas","IT","Analista","Mercadeo","Coberturas","Compras"];
+const POSITIONS = ["Asesor Visual","Optometra","Capacitador","Supervisor","RRHH","Analisis financiero y coordinacion de proyectos","Asesor de Coberturas","Auxiliar","Agente SAC","Deseñador","Community manager","Supervisor de SAC","Gestor Empresarial","Supervisor de Empresarial"];
 
 function branchOptions(current) {
   const opts = BRANCHES.includes(current) ? BRANCHES : [current, ...BRANCHES];
