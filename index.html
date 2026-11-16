@@ -4901,10 +4901,10 @@ init();
 // ═══════════════════════════════════════════════════════════════════════
 // 👓 CATEGORÍA «AROS OFTÁLMICOS» · MÓDULO «Ovvo Optics»
 // Fuente: presentación «OVVO Optics: el aro que resiste» (capacitación asesores, nov 2026).
-// - Solo academia de ASESORES · id 28 · categoría 'aros' (va después de Ventas y Productos).
+// - Academia de ASESORES (id 28, después de Ventas y Productos) y de OPTOMETRISTAS (id 11, después de Sistema).
 // - Bloque autónomo: se pega UNA vez, justo antes de <script type="module"> (Firebase).
 //   No hay que editar nada más dentro del index.
-// - En js/admin.js agregar a MODULE_NAMES:  28: 'Ovvo Optics'
+// - En js/admin.js: MODULE_NAMES → "28": "Ovvo Optics" · MODULE_NAMES_OPTO → "11": "Ovvo Optics"
 // ═══════════════════════════════════════════════════════════════════════
 (function(){
   // ── 1) Logo de la marca (tarjeta, menú y encabezado) y fotos de las líneas ─────────
@@ -5147,6 +5147,8 @@ init();
     q.c = q.opts.indexOf(correcta);
   });
   MODULES_ASESOR.push(MODULO_OVVO);
+  // También en la academia de OPTOMETRISTAS, con id propio (11)
+  MODULES_OPTO.push((function(){ var c={}; for(var k in MODULO_OVVO) c[k]=MODULO_OVVO[k]; c.id=11; return c; })());
 
   // ── 4) Nueva categoría «Aros Oftálmicos», justo después de Ventas y Productos ──
   var cats = Object.entries(CAT_INFO_ASESOR);
@@ -5158,6 +5160,16 @@ init();
     }
   });
   if (!CAT_INFO_ASESOR.aros) CAT_INFO_ASESOR.aros = { label:'Aros Oftálmicos', dashTitle:'👓 Aros Oftálmicos', ids:[28] };
+  // Misma categoría en la academia de optometristas, después de «Sistema»
+  var catsO = Object.entries(CAT_INFO_OPTO);
+  Object.keys(CAT_INFO_OPTO).forEach(function(k){ delete CAT_INFO_OPTO[k]; });
+  catsO.forEach(function(par){
+    CAT_INFO_OPTO[par[0]] = par[1];
+    if (par[0] === 'sistema') {
+      CAT_INFO_OPTO.aros = { label:'Aros Oftálmicos', dashTitle:'👓 Aros Oftálmicos', ids:[11] };
+    }
+  });
+  if (!CAT_INFO_OPTO.aros) CAT_INFO_OPTO.aros = { label:'Aros Oftálmicos', dashTitle:'👓 Aros Oftálmicos', ids:[11] };
   CAT_ICONS.aros = '👓';
 
   // Nombre de la categoría en el encabezado del módulo
@@ -5166,7 +5178,7 @@ init();
 
   // Siempre abierto y enlace directo desde Odoo: ?modulo=ovvo
   RUTAS_LIBRES.push('aros');
-  ENLACES_MODULOS['ovvo'] = { a:28 };
+  ENLACES_MODULOS['ovvo'] = { a:28, o:11 };
 
   // Términos nuevos en el Glosario (también los usa el asistente virtual)
   GLOSSARY_DATA.push(
