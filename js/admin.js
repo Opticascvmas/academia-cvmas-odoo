@@ -527,6 +527,8 @@ function computeData(range) {
       videos: ["v1","v2","v3","v4","v5","v6","v7"].filter(k => av.vd && av.vd[k]).length,
       guia: ["p1","pe","p2","p3","p4","p5","p6","p7","p8","p9"].filter(k => av.g && av.g[k]).length
     };
+    // Uso del Simulador SUMÁS (práctica opcional: NO es requisito del quiz)
+    const simu = cvxSimDe(av);
 
     const d = daysSince(u.lastLogin);
     let status = "inactivo", statusLabel = "Inactivo";
@@ -561,6 +563,7 @@ function computeData(range) {
                      moduleEntries.reduce((a, m) => a + m.attempts, 0),
       completed: moduleEntries.length,
       sumas,
+      simu,
       excepcionSumas: !!u.excepcionSumas,
       totalMod: TOTAL_MOD,
       progress: Math.round((moduleEntries.length / TOTAL_MOD) * 100),
@@ -1219,6 +1222,100 @@ function cvxMatrizSiNo(d) {
       </div>
     </div>`;
 }
+
+/* ---------- SIMULADOR SUMÁS: quién entró y cómo lo usa ----------
+   Datos en progress/{uid}.sumas:
+     simUso = { ap: veces que lo abrió, pri / ult: primera y última vez (ISO), s: segundos abierto,
+                p: { afi|eti|tra|tyc: { n: ejercicios de Práctica, ok: correctos } } }
+     sim    = { afi|eti|tra|tyc: { mejor, ultimo, intentos, fecha } }   (misiones)
+   El simulador es práctica opcional: no bloquea ni desbloquea el quiz. */
+const CVX_SIM_MODS = [
+  { id: "afi", n: "Afiliación" }, { id: "eti", n: "Etiquetas 1 y 2" },
+  { id: "tra", n: "Puntos y tramos" }, { id: "tyc", n: "Términos y condiciones" }
+];
+function cvxSimDe(av) {
+  const uso = (av && av.simUso) || {}, sim = (av && av.sim) || {};
+  const p = uso.p || {};
+  const mods = {};
+  let practica = 0, aciertos = 0, misiones = 0, aprobadas = 0;
+  CVX_SIM_MODS.forEach(m => {
+    const pr = p[m.id] || {}, mi = sim[m.id] || null;
+    mods[m.id] = { n: pr.n || 0, ok: pr.ok || 0, mision: mi };
+    practica += pr.n || 0; aciertos += pr.ok || 0;
+    if (mi) { misiones += mi.intentos || 0; if ((mi.mejor || 0) >= 80) aprobadas++; }
+  });
+  const ap = uso.ap || 0;
+  // Si solo hay misiones guardadas (de antes de medir el uso), igual cuenta como que entró
+  const entro = ap > 0 || practica > 0 || misiones > 0;
+  return { entro, ap, pri: uso.pri || null, ult: uso.ult || null, min: Math.round((uso.s || 0) / 60),
+           practica, aciertos, misiones, aprobadas, mods };
+}
+function cvxSimTiempo(min) {
+  if (!min) return '<span class="cvp-muted">menos de 1 min</span>';
+  return min < 60 ? min + ' min' : Math.floor(min / 60) + ' h ' + (min % 60) + ' min';
+}
+function cvxSimCelda(m) {
+  const pr = m.n ? `<span title="Ejercicios de Práctica: ${m.ok} correctos de ${m.n}">🧪 ${m.ok}/${m.n}</span>` : '<span class="cvp-muted">🧪 —</span>';
+  const mi = m.mision
+    ? `<span class="cvx-chip ${cvxTone(m.mision.mejor || 0)}" title="Misión · mejor nota ${m.mision.mejor}% · última ${m.mision.ultimo}% · ${m.mision.intentos} intento(s)">🎯 ${m.mision.mejor}%<small> ×${m.mision.intentos}</small></span>`
+    : '<span class="cvp-muted">🎯 —</span>';
+  return `<div class="cvx-sim-cel">${pr}${mi}</div>`;
+}
+function cvxMatrizSim(d) {
+  const mod = CVX_MATRIZ.mod ? cvxMatrizModulos().find(m => m.key === CVX_MATRIZ.mod) : null;
+  if (!mod || !/suma/i.test(cvxNorm(mod.name))) return '';
+  const base = cvxMatrizBase(d);
+  const total = base.length;
+  const usan = base.filter(f => f.u.simu && f.u.simu.entro)
+    .sort((a, b) => String(b.u.simu.ult || '').localeCompare(String(a.u.simu.ult || '')) || cvxPorNombre(a, b));
+  const nunca = base.filter(f => !(f.u.simu && f.u.simu.entro)).sort(cvxPorZona);
+  const pct = total ? Math.round(usan.length / total * 100) : 0;
+  const ejercicios = usan.reduce((s, f) => s + f.u.simu.practica, 0);
+  const correctos = usan.reduce((s, f) => s + f.u.simu.aciertos, 0);
+  const pctOk = ejercicios ? Math.round(correctos / ejercicios * 100) : null;
+  const conTodas = usan.filter(f => f.u.simu.aprobadas === 4).length;
+  // Módulo del simulador más y menos practicado (ayuda a decidir qué reforzar)
+  const porMod = CVX_SIM_MODS.map(m => {
+    const n = usan.reduce((s, f) => s + f.u.simu.mods[m.id].n, 0);
+    const ok = usan.reduce((s, f) => s + f.u.simu.mods[m.id].ok, 0);
+    const ap = usan.filter(f => (f.u.simu.mods[m.id].mision || {}).mejor >= 80).length;
+    return { nom: m.n, n, ok, ap };
+  });
+  const filaUso = f => {
+    const s = f.u.simu;
+    return `<tr><td><b>${esc(f.u.name)}</b><small class="cvx-zchip">${esc(f.u.branch)} · ${esc(f.u.zona)}</small></td>
+      <td class="num">${s.ap || '—'}</td>
+      <td>${s.ult ? esc(fechaElSalvador(s.ult)) : '<span class="cvp-muted">—</span>'}</td>
+      <td class="num">${s.ap ? cvxSimTiempo(s.min) : '<span class="cvp-muted">—</span>'}</td>
+      ${CVX_SIM_MODS.map(m => `<td>${cvxSimCelda(s.mods[m.id])}</td>`).join('')}
+      <td class="num"><span class="cvx-chip ${s.aprobadas === 4 ? 'ok' : s.aprobadas ? 'warn' : 'neutro'}">${s.aprobadas}/4</span></td></tr>`;
+  };
+  const filaNunca = f => `<tr><td><b>${esc(f.u.name)}</b></td><td>${esc(f.u.branch)}<small class="cvx-zchip">${esc(f.u.zona)}</small></td><td>${f.u.lastLogin ? esc(fechaElSalvador(f.u.lastLogin)) : '<span class="cvp-muted">Nunca ha entrado a la academia</span>'}</td></tr>`;
+  return `
+    <div class="cvp-card">
+      <div class="cvx-card-head"><h3>🎯 Simulador SUMÁS · quién entró y cómo lo usa</h3>
+        <span class="cvp-muted">Práctica opcional: no es requisito para el quiz. Respeta el filtro de zonas y sucursales.</span></div>
+      <div class="cvx-mx-kpis">
+        <div class="cvx-kpi ${cvxTone(pct)}"><div class="cvx-kpi-label">Entraron al simulador</div><div class="cvx-kpi-value">${pct}%</div>
+          <div class="cvx-meter"><i style="width:${pct}%"></i></div><div class="cvx-kpi-sub">${usan.length} de ${total} usuarios</div></div>
+        <div class="cvx-kpi ${pctOk == null ? '' : cvxTone(pctOk)}"><div class="cvx-kpi-label">Ejercicios de práctica</div><div class="cvx-kpi-value">${ejercicios}</div>
+          <div class="cvx-kpi-sub">${pctOk == null ? 'Aún no hay ejercicios' : pctOk + '% resueltos correctamente'}</div></div>
+        <div class="cvx-kpi ok"><div class="cvx-kpi-label">Aprobaron las 4 misiones</div><div class="cvx-kpi-value">${conTodas}</div>
+          <div class="cvx-kpi-sub">misión aprobada = 80% o más</div></div>
+      </div>
+      <div class="cvx-sim-mods">${porMod.map(m => `<div><b>${esc(m.nom)}</b><span>🧪 ${m.n} ejercicio${m.n === 1 ? '' : 's'}${m.n ? ' · ' + Math.round(m.ok / m.n * 100) + '% correctos' : ''}</span><span>🎯 ${m.ap} con la misión aprobada</span></div>`).join('')}</div>
+      <p class="cvp-muted cvx-sim-ley">🧪 Práctica: ejercicios correctos / realizados · 🎯 Misión: mejor nota y número de intentos (×). Las entradas y el tiempo se registran desde esta versión; antes solo se guardaban las misiones.</p>
+      <div class="cvx-tablewrap cvx-mx-scroll"><table class="cvx-table cvx-sim-tabla">
+        <thead><tr><th>Colaborador</th><th class="num">Entradas</th><th>Último uso</th><th class="num">Tiempo total</th>${CVX_SIM_MODS.map(m => `<th>${esc(m.n)}</th>`).join('')}<th class="num">Misiones</th></tr></thead>
+        <tbody>${usan.map(filaUso).join('') || '<tr><td colspan="9" class="cvp-empty">Nadie ha entrado al simulador todavía.</td></tr>'}</tbody>
+      </table></div>
+      <h4 class="cvx-sim-h4">✖ No han entrado al simulador <span>${nunca.length}</span></h4>
+      <div class="cvx-tablewrap cvx-mx-scroll"><table class="cvx-table">
+        <thead><tr><th>Colaborador</th><th>Sucursal</th><th>Último acceso a la academia</th></tr></thead>
+        <tbody>${nunca.map(filaNunca).join('') || '<tr><td colspan="3" class="cvp-empty">¡Todos ya entraron al simulador! 🎉</td></tr>'}</tbody>
+      </table></div>
+    </div>`;
+}
 /* ---------- Selector de zonas y sucursales (selección múltiple) ----------
    Se usa en "Notas por módulo" y en "Usuarios". Cada selector guarda su lista
    de sucursales marcadas; marcar una zona marca todas sus sucursales. */
@@ -1322,6 +1419,7 @@ function renderMatriz(d) {
       <div class="cvx-card-head"><h3>${cvxIco('usuarios')} ¿Quién ya realizó el módulo?</h3><span class="cvx-sino-acc"><span class="cvp-muted">Respeta el filtro de zonas y sucursales.</span><button class="cvp-btn gold" type="button" onclick="cvxExportSiNo()">⬇ Descargar Excel</button></span></div>
       <div id="cvxMxSiNo">${cvxMatrizSiNo(d)}</div>
     </div>
+    <div id="cvxMxSim">${cvxMatrizSim(d)}</div>
     <div class="cvp-card">
       <div class="cvx-card-head"><h3>${cvxIco('matriz')} Tabla general: usuarios y módulos</h3><span class="cvp-muted">Desliza la tabla: el nombre y los módulos quedan fijos.</span></div>
       <div class="cvx-mx-wrap" id="cvxMxTabla">${cvxMatrizTabla(d)}</div>
@@ -1334,6 +1432,7 @@ function cvxMatrizRefrescar() {
   if (k) k.innerHTML = cvxMatrizKpis(d);
   if (t) { t.innerHTML = cvxMatrizTabla(d); }
   if (s) s.innerHTML = cvxMatrizSiNo(d);
+  const sm = document.getElementById('cvxMxSim'); if (sm) sm.innerHTML = cvxMatrizSim(d);
 }
 window.cvxMatrizFiltrar = function (campo, valor) {
   CVX_MATRIZ[campo] = valor;
@@ -3130,6 +3229,16 @@ function injectStyles() {
 .cvx-card-head .cvp-muted{margin:0;font-size:12.5px}
 /* KPIs */
 .cvx-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:16px}
+.cvx-sim-mods{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:14px 0 6px}
+.cvx-sim-mods>div{border:1px solid var(--cx-l);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px;font-size:12.5px}
+.cvx-sim-mods b{font-size:13px;color:var(--cx-k)}
+.cvx-sim-ley{font-size:12px;margin:8px 0}
+.cvx-sim-cel{display:flex;flex-direction:column;gap:3px;font-size:12px;white-space:nowrap}
+.cvx-sim-cel .cvx-chip{align-self:flex-start}
+.cvx-sim-cel small{font-weight:600;opacity:.75}
+.cvx-sim-tabla td{vertical-align:middle}
+.cvx-sim-h4{margin:18px 0 8px;font-size:14px}
+.cvx-sim-h4 span{background:var(--cx-l);border-radius:999px;padding:1px 9px;font-size:12px;margin-left:4px}
 .cvx-kpi{background:#fff;border:1px solid var(--cx-l);border-radius:16px;padding:16px 18px;position:relative;overflow:hidden}
 .cvx-kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--cx-l)}
 .cvx-kpi.ok::before{background:var(--cx-ok)}.cvx-kpi.warn::before{background:var(--cx-g)}.cvx-kpi.danger::before{background:var(--cx-d)}
