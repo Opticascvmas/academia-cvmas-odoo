@@ -7414,5 +7414,58 @@ function cvpBotToggleMic(){
   };
 })();
 </script>
+<!-- ═══ SIMULADOR SUMÁS · uso (entradas, tiempo y práctica) para el panel admin. No es requisito del quiz. ═══ -->
+<script>
+(function(){
+  // Se guarda en progress/{uid} → sumas.simUso = { ap, pri, ult, s, p:{afi|eti|tra|tyc:{n,ok}} }
+  function U(){ var a = window.SUMAS_AV || (window.SUMAS_AV = {}); var u = a.simUso || (a.simUso = {}); u.p = u.p || {}; return u; }
+  function local(){ try { localStorage.setItem('cvplus_sumas_avance', JSON.stringify(window.SUMAS_AV)); } catch(e) {} }
+  var tPend = null;
+  function guardarLuego(){   // agrupado: como máximo un envío por minuto a Firebase
+    local();
+    if (!tPend) tPend = setTimeout(function(){ tPend = null; try { window.cvpGuardarSumasAhora && window.cvpGuardarSumasAhora(); } catch(e) {} }, 60000);
+  }
+  function guardarYa(){
+    local();
+    if (tPend) { clearTimeout(tPend); tPend = null; }
+    try { window.cvpGuardarSumasAhora && window.cvpGuardarSumasAhora(); } catch(e) {}
+  }
+  function simAbierto(){
+    var m = document.getElementById('modal-sumas'), f = document.getElementById('sumas-frame');
+    return !!(m && m.classList.contains('abierto') && f && /sumas-simulador/.test(f.getAttribute('src') || ''));
+  }
+
+  // 1) Cada vez que abre el simulador
+  var abrir = window.abrirSumas;
+  window.abrirSumas = function(tipo, ancla){
+    var r = abrir(tipo, ancla);
+    if (tipo === 'simulador') {
+      var u = U(), ahora = new Date().toISOString();
+      u.ap = (u.ap || 0) + 1; u.pri = u.pri || ahora; u.ult = ahora;
+      guardarYa();
+    }
+    return r;
+  };
+
+  // 2) Tiempo con el simulador abierto y a la vista (cuenta de 15 en 15 segundos)
+  setInterval(function(){
+    if (!document.hidden && simAbierto()) { var u = U(); u.s = (u.s || 0) + 15; u.ult = new Date().toISOString(); local(); }
+  }, 15000);
+
+  // 3) Cada ejercicio de Práctica (lo llama el simulador)
+  window.CVP_practicaSimulador = function(mod, ok){
+    if (['afi','eti','tra','tyc'].indexOf(mod) === -1) return;
+    var u = U(), r = u.p[mod] || (u.p[mod] = { n: 0, ok: 0 });
+    r.n++; if (ok) r.ok++;
+    u.ult = new Date().toISOString();
+    guardarLuego();
+  };
+
+  // 4) Al cerrar el simulador o dejar la academia se envía lo pendiente
+  var cerrar = window.cerrarSumas;
+  window.cerrarSumas = function(){ var era = simAbierto(); cerrar(); if (era) guardarYa(); };
+  document.addEventListener('visibilitychange', function(){ if (document.hidden && simAbierto()) guardarYa(); });
+})();
+</script>
 </body>
 </html>
