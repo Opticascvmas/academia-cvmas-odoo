@@ -47,7 +47,7 @@ const MODULE_NAMES = {
   "23": "Ingles Nivel 4 - Conversacion real",
   "24": "Ingles Nivel 0 - Desde cero",
   "25": "Flexi-Cuotas - Proceso de credito",
-  "26": "SUMAS - Programa de Lealtad y Reactivacion"
+  "26": "SUMAS - Programa de Lealtad y Reactivacion",
   "28": "Ovvo Optics",
   // ...agrega o corrige los que necesites
 };
