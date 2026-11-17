@@ -3567,6 +3567,13 @@ const MODULO_SUMAS = {
       </div>
       <button class="cv-btn-sumas oro" type="button" onclick="abrirSumas('guia')">Abrir guía</button>
     </div>
+    <div class="cv-sumas-cta">
+      <div class="cv-sumas-txt">
+        <strong>🎯 Simulador SUMÁS</strong>
+        <span>Practica la afiliación, la lectura de etiquetas, los tramos de descuento y los términos y condiciones. 4 misiones con nota.</span>
+      </div>
+      <button class="cv-btn-sumas" type="button" onclick="abrirSumas('simulador')">Abrir simulador</button>
+    </div>
 
     <h2>1. Dos motores que trabajan juntos</h2>
     <table class="comparison-table">
@@ -7368,6 +7375,43 @@ function cvpBotToggleMic(){
       }
     }
   } catch(e) {}
+})();
+</script>
+<!-- ═══ SIMULADOR SUMÁS: abre herramientas/sumas-simulador.html en el modal SUMÁS y guarda sus notas ═══ -->
+<script>
+(function(){
+  // 1) abrirSumas('simulador') abre el simulador en el mismo modal de videos y guía
+  var abrirOriginal = window.abrirSumas;
+  window.abrirSumas = function(tipo, ancla){
+    if (tipo !== 'simulador') return abrirOriginal(tipo, ancla);
+    var m = document.getElementById('modal-sumas');
+    document.getElementById('sumas-titulo').textContent = '🎯 Simulador SUMÁS · práctica';
+    document.getElementById('sumas-frame').src = 'herramientas/sumas-simulador.html' + (ancla ? '#' + ancla : '');
+    m.classList.add('abierto');
+    m.setAttribute('aria-hidden', 'false');
+  };
+
+  // 2) El simulador llama a esta función al terminar cada misión.
+  //    Se guarda por usuario en Firestore: progress/{uid} → sumas.sim.{afi|eti|tra|tyc}
+  //    { mejor, ultimo, intentos, fecha }
+  window.CVP_registrarSimulador = function(dato){
+    var a = window.SUMAS_AV || (window.SUMAS_AV = {});
+    a.sim = a.sim || {};
+    var r = a.sim[dato.mision] || { mejor: 0, intentos: 0 };
+    r.ultimo = dato.nota;
+    r.mejor = Math.max(r.mejor || 0, dato.nota);
+    r.intentos = (r.intentos || 0) + 1;
+    r.fecha = dato.fecha;
+    a.sim[dato.mision] = r;
+    try { localStorage.setItem('cvplus_sumas_avance', JSON.stringify(a)); } catch(e) {}
+    try { if (typeof window.cvpGuardarSumasAhora === 'function') window.cvpGuardarSumasAhora(); } catch(e) {}
+    return r;
+  };
+
+  // 3) El simulador lee aquí las notas del usuario que inició sesión (no las del iPad)
+  window.CVP_resultadosSimulador = function(){
+    return (window.SUMAS_AV && window.SUMAS_AV.sim) || {};
+  };
 })();
 </script>
 </body>
