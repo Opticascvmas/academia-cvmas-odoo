@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Simulador SUMÁS</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap">
+<style id="css">
+/* Layout: encabezado CV+ + franja fija de práctica + pestañas por módulo; cada módulo alterna Practicar / Misión. Pantallas tipo Odoo y teléfono como objetos dentro de la página. */
+:root{
+  color-scheme:light;
+  --cian:#00abc8; --cian-o:#00788d; --oro:#ffc629; --carbon:#373a36; --gris:#6b6e6a;
+  --fondo:#f4f7f8; --card:#ffffff; --cian-s:#e5f6f9; --oro-s:#fff6dd; --linea:#e1e7e9;
+  --ok:#2e9e5b; --ok-s:#e7f5ec; --al:#b98a00; --al-s:#fff6dd; --cr:#d64545; --cr-s:#fdeaea;
+  --odoo:#714b67; --odoo-s:#f3edf2; --perfil:#3fb3d9; --comp:#5b5d5a;
+  --ed-bg:#fffcf0; --ed-bd:#f0d98a; --sombra:0 2px 12px rgba(0,0,0,.06);
+  --f:'Poppins','Segoe UI',Arial,sans-serif;
+}
+*{box-sizing:border-box}
+body{background:var(--fondo);color:var(--carbon);font-family:var(--f);font-size:14.5px;line-height:1.55;margin:0}
+.wrap{max-width:1100px;margin:0 auto;padding-block:0 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
+h1,h2,h3{margin:0;line-height:1.25;text-wrap:balance}
+h1{font-size:clamp(20px,3vw,26px);font-weight:700}
+h2{font-size:18px;font-weight:600}
+h3{font-size:15px;font-weight:600}
+p{margin:0}
+button{font-family:inherit}
+.num{font-variant-numeric:tabular-nums}
+.sub{color:var(--gris)}
+.eyebrow{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--cian-o);font-weight:600}
+
+/* franja de práctica */
+.franja{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:repeating-linear-gradient(135deg,#ffc629 0 14px,#ffd65c 14px 28px);color:#373a36;font-weight:600;font-size:12.5px;text-align:center;padding:6px 12px;padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px))}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:21;background:#ffc629}
+
+/* encabezado */
+.cab{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;padding-top:14px}
+.marca{display:flex;gap:14px;align-items:center;min-width:0}
+.plato{background:#fff;border-radius:12px;padding:6px 10px;border:1px solid var(--linea);flex:none}
+.plato img{height:38px;width:auto;display:block}
+.hacc{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{font:500 13px var(--f);border-radius:999px;padding:7px 14px;cursor:pointer;border:1.5px solid var(--linea);background:var(--card);color:var(--carbon)}
+.btn:focus-visible,.tab:focus-visible,.op:focus-visible,.chip-b:focus-visible{outline:2px solid var(--cian);outline-offset:2px}
+.btn.oro{background:#ffc629;border-color:#ffc629;color:#373a36;font-weight:600}
+.btn.oro:disabled{opacity:.45;cursor:not-allowed}
+.btn.cian{border-color:var(--cian);color:var(--cian-o)}
+.btn.prim{background:var(--cian);border-color:var(--cian);color:#fff;font-weight:600}
+.btn.prim:disabled{opacity:.45;cursor:not-allowed}
+
+/* pestañas */
+.tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.tab{flex:none;font:600 13.5px var(--f);border:1.5px solid var(--linea);background:var(--card);color:var(--carbon);border-radius:12px;padding:9px 14px;cursor:pointer;display:flex;gap:6px;align-items:center}
+.tab[aria-selected="true"]{background:var(--cian);border-color:var(--cian);color:#fff}
+.tab .ok{width:8px;height:8px;border-radius:50%;background:var(--linea)}
+.tab .ok.si{background:var(--ok)}
+
+.card{background:var(--card);border-radius:18px;box-shadow:var(--sombra);border:1px solid var(--linea);padding:18px 20px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.modo{display:inline-flex;background:var(--fondo);border:1px solid var(--linea);border-radius:999px;padding:3px;gap:3px;align-self:flex-start}
+.modo button{font:600 13px var(--f);border:none;background:transparent;color:var(--gris);padding:6px 14px;border-radius:999px;cursor:pointer}
+.modo button[aria-pressed="true"]{background:var(--card);color:var(--carbon);box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.dos{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.caja{border:1px solid var(--linea);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.caja.oro{background:var(--oro-s);border-color:var(--ed-bd)}
+.caja.cian{background:var(--cian-s);border-color:transparent}
+ul.lst{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.tabla-w{overflow-x:auto;border:1px solid var(--linea);border-radius:12px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{background:var(--cian);color:#fff;font-weight:600;text-align:left;padding:8px 10px;white-space:nowrap}
+td{padding:8px 10px;border-top:1px solid var(--linea);vertical-align:top}
+td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
+.chip{display:inline-block;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:600;white-space:nowrap}
+.ch-ok{background:var(--ok-s);color:var(--ok)} .ch-cr{background:var(--cr-s);color:var(--cr)} .ch-al{background:var(--al-s);color:var(--al)} .ch-ci{background:var(--cian-s);color:var(--cian-o)} .ch-gr{background:var(--fondo);color:var(--gris);border:1px solid var(--linea)}
+
+/* inicio */
+.misiones{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.mis{border:1px solid var(--linea);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px;background:var(--card);cursor:pointer;text-align:left;font:inherit;color:inherit}
+.mis:hover{border-color:var(--cian)}
+.mis .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.barra{height:8px;border-radius:99px;background:var(--cian-s);overflow:hidden}
+.barra i{display:block;height:100%;background:var(--cian);border-radius:99px}
+
+/* Odoo mock */
+.odoo{border:1px solid var(--linea);border-radius:14px;overflow:hidden;background:var(--card)}
+.o-nav{background:var(--odoo);color:#fff;display:flex;gap:16px;align-items:center;padding:8px 14px;font-size:13px;flex-wrap:wrap}
+.o-nav b{font-weight:600}
+.o-nav .pr{margin-left:auto;font-size:11px;background:rgba(255,255,255,.18);padding:2px 8px;border-radius:999px}
+.o-body{padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.o-tit{font-size:20px;font-weight:600}
+.o-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:6px 24px;font-size:13.5px}
+.o-f{display:grid;grid-template-columns:150px minmax(0,1fr);gap:8px;align-items:center;min-height:30px}
+.o-f .l{font-weight:600}
+.bdg{display:inline-block;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:500;color:#fff}
+.bdg.perfil{background:var(--perfil)} .bdg.comp{background:var(--comp)} .bdg.vig{background:#2e9e5b} .bdg.pv{background:#e0a800;color:#373a36} .bdg.ven{background:#d64545}
+.o-tabla th{background:var(--odoo-s);color:var(--carbon);border-bottom:1px solid var(--linea)}
+.o-btns{display:flex;gap:8px;flex-wrap:wrap}
+.o-btn{font:500 13px var(--f);border:1px solid var(--linea);background:var(--card);color:var(--carbon);border-radius:6px;padding:6px 12px;cursor:pointer}
+.o-btn.p{background:var(--odoo);border-color:var(--odoo);color:#fff}
+.o-btn:disabled{opacity:.5;cursor:not-allowed}
+.o-tot{display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-size:13.5px}
+.o-tot b{font-size:16px}
+.desc-line td{color:var(--ok)}
+.excl{color:var(--gris);font-size:11.5px}
+tr.prom td{background:var(--cian-s);border-top:2px solid var(--cian)}
+
+/* selección */
+.sel-g{display:flex;flex-direction:column;gap:6px}
+.sel-g .t{font-size:12.5px;font-weight:600;color:var(--gris)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip-b{font:500 13px var(--f);border:1.5px solid var(--linea);background:var(--card);color:var(--carbon);border-radius:999px;padding:5px 12px;cursor:pointer}
+.chip-b[aria-pressed="true"]{background:var(--cian);border-color:var(--cian);color:#fff}
+.fb{border-radius:12px;padding:12px 14px;font-size:13.5px;display:flex;flex-direction:column;gap:6px}
+.fb.ok{background:var(--ok-s);border:1px solid var(--ok)}
+.fb.mal{background:var(--cr-s);border:1px solid var(--cr)}
+.fb.info{background:var(--cian-s)}
+.fila{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input.inp{font:500 14px var(--f);border:1.5px solid var(--linea);border-radius:10px;padding:7px 10px;width:120px;background:var(--card);color:var(--carbon)}
+
+/* quiz */
+.q-head{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.q-prog{flex:1 1 200px}
+.q-txt{font-size:15.5px;font-weight:500}
+.ops{display:flex;flex-direction:column;gap:8px}
+.op{text-align:left;font:400 14px var(--f);border:1.5px solid var(--linea);background:var(--card);color:var(--carbon);border-radius:12px;padding:10px 14px;cursor:pointer}
+.op:hover:not(:disabled){border-color:var(--cian)}
+.op.bien{border-color:var(--ok);background:var(--ok-s)}
+.op.malo{border-color:var(--cr);background:var(--cr-s)}
+.op:disabled{cursor:default}
+.res{font-size:42px;font-weight:700;font-variant-numeric:tabular-nums}
+
+/* teléfono */
+.af{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:720px){.af{grid-template-columns:1fr}}
+.tel{width:100%;max-width:340px;margin:0 auto;border-radius:34px;border:10px solid #22252a;background:#fff;color:#2a2d33;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+.tel .bar{height:26px;background:#fff;display:flex;justify-content:center;align-items:center}
+.tel .bar i{width:90px;height:16px;border-radius:999px;background:#22252a}
+.tel .pant{height:560px;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;font-size:13px}
+.tel .url{font-size:10.5px;text-align:center;color:#6b6e6a;background:#f0f2f4;padding:5px;border-top:1px solid #e3e6e9}
+.s-logo{font-weight:800;font-size:28px;color:#1f6fb2;text-align:center;letter-spacing:.02em}
+.s-logo span{color:#ffc629}
+.s-sub{font-size:10.5px;text-align:center;color:#1f6fb2;font-weight:600;letter-spacing:.06em}
+.s-card{border:1px solid #e3e6e9;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;background:#fff}
+.s-ben{display:flex;gap:10px;font-size:12px}
+.s-ben b{display:block;font-size:12.5px}
+.ico{flex:none;width:28px;height:28px;border-radius:8px;color:#fff;display:grid;place-items:center;font-weight:700;font-size:13px}
+.s-in{font:500 14px var(--f);border:1.5px solid #c9d3d6;border-radius:10px;padding:9px 10px;width:100%;color:#2a2d33;background:#fff}
+.s-in:disabled{background:#f0f2f4;color:#6b6e6a}
+.s-lab{font-size:10.5px;font-weight:700;letter-spacing:.06em;color:#6b6e6a}
+.s-btn{font:600 14px var(--f);border:none;border-radius:10px;padding:11px;background:#3fb3d9;color:#fff;cursor:pointer;width:100%}
+.s-btn:disabled{background:#bfe3f0;cursor:not-allowed}
+.s-chk{display:flex;gap:8px;font-size:11.5px;align-items:flex-start}
+.s-hero{background:#3a8fc0;color:#fff;border-radius:12px;padding:20px;text-align:center;display:flex;flex-direction:column;gap:8px;align-items:center}
+.s-hero .ck{width:46px;height:46px;border-radius:50%;background:#fff;color:#3a8fc0;display:grid;place-items:center;font-size:24px;font-weight:700}
+.s-load{flex:1;display:grid;place-items:center;text-align:center;color:#6b6e6a}
+.pase{border-radius:14px;overflow:hidden;border:1px solid #d9dde0;background:#fff}
+.pase .ph{background:#3f4446;color:#fff;padding:16px;font-weight:700;font-size:15px;line-height:1.2}
+.pase .pd{display:flex;justify-content:space-between;padding:10px 14px;font-size:11px;color:#6b6e6a}
+.pase .pd b{display:block;color:#2a2d33;font-size:16px;font-weight:500}
+.qr{width:96px;height:96px;margin:6px auto 14px;background:
+ conic-gradient(#222 25%,#fff 0 50%,#222 0 75%,#fff 0) 0 0/16px 16px;border:6px solid #fff;outline:1px solid #ccc}
+.paso-tip{display:flex;flex-direction:column;gap:10px}
+.pt-n{display:flex;gap:6px;flex-wrap:wrap}
+.pt-n span{font-size:11.5px;padding:3px 9px;border-radius:999px;background:var(--fondo);border:1px solid var(--linea);color:var(--gris)}
+.pt-n span.on{background:var(--cian);border-color:var(--cian);color:#fff}
+
+.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#373a36;color:#fff;padding:9px 16px;border-radius:999px;font-size:13px;z-index:50;box-shadow:0 6px 18px rgba(0,0,0,.2);max-width:calc(100% - 32px);text-align:center}
+.modal{position:fixed;inset:0;background:rgba(20,22,24,.5);z-index:40;display:grid;place-items:center;padding:16px}
+.modal .box{background:var(--card);color:var(--carbon);border-radius:12px;max-width:440px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.3);overflow:hidden}
+.modal .mh{padding:12px 16px;border-bottom:1px solid var(--linea);font-weight:600;display:flex;justify-content:space-between}
+.modal .mb{padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.modal .mf{padding:10px 16px;border-top:1px solid var(--linea);display:flex;gap:8px}
+.rw{display:flex;gap:10px;align-items:center;border:1px solid var(--linea);border-radius:8px;padding:8px 10px;cursor:pointer}
+.pie{font-size:12px;color:var(--gris);text-align:center}
+.hide{display:none!important}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div class="franja">Simulador SUMÁS · práctica: nada de lo que hagas aquí afecta al Odoo real</div>
+<div class="wrap">
+  <header class="cab">
+    <div class="marca">
+      <div class="plato"><img alt="Ópticas CV+" src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyBpZD0iTGF5ZXJfMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2ZXJzaW9uPSIxLjEiIHZpZXdCb3g9IjAgMCA2MTIgMjUzIj4KICA8IS0tIEdlbmVyYXRvcjogQWRvYmUgSWxsdXN0cmF0b3IgMjkuMC4xLCBTVkcgRXhwb3J0IFBsdWctSW4gLiBTVkcgVmVyc2lvbjogMi4xLjAgQnVpbGQgMTkyKSAgLS0+CiAgPGRlZnM+CiAgICA8c3R5bGU+CiAgICAgIC5zdDAgewogICAgICAgIGZpbGw6ICNmZmM2Mjk7CiAgICAgIH0KCiAgICAgIC5zdDAsIC5zdDEsIC5zdDIgewogICAgICAgIGZpbGwtcnVsZTogZXZlbm9kZDsKICAgICAgfQoKICAgICAgLnN0MSB7CiAgICAgICAgZmlsbDogIzM3M2EzNjsKICAgICAgfQoKICAgICAgLnN0MiB7CiAgICAgICAgZmlsbDogIzAwYWJjODsKICAgICAgfQogICAgPC9zdHlsZT4KICA8L2RlZnM+CiAgPHBvbHlnb24gY2xhc3M9InN0MCIgcG9pbnRzPSI1MjguNTMgMTIwLjA3IDUyOC42OCAxMTkuOTMgNTQ4LjU2IDExOS43NyA1NDguNTYgMTAwLjA1IDU0OC43IDk5LjkgNTU2LjU3IDk5LjkgNTU2LjcyIDExOS44MiA1NzYuNiAxMTkuOTMgNTc2LjYgMTI3Ljc5IDU3Ni40NSAxMjcuOTUgNTU2LjU3IDEyOC4xIDU1Ni41NyAxNDcuODIgNTU2LjQyIDE0Ny45NyA1NDguNTYgMTQ3Ljk3IDU0OC40IDEyOC4xIDUyOC41MyAxMjcuOTUgNTI4LjUzIDEyMC4wNyIvPgogIDxnPgogICAgPHBhdGggY2xhc3M9InN0MiIgZD0iTTQ1MS4xMiw4Mi44OWgxNC40NGwyNi4zNCw1Mi4zaC4zOGwyNi4yNi01Mi4zaDE1LjIxYy42NCwwLC44OC4yNS42OS43N2wtNDEuODYsODQuMDJjLS4xOC4zOC0uOS4zNy0xLjA4LDBsLTQxLjQ3LTgzLjMyYy0uNC0uOTMsMC0xLjQ2LDEuMDctMS40NiIvPgogICAgPHBhdGggY2xhc3M9InN0MiIgZD0iTTM4Ny42NSwxMjUuNDVjMCwxNS4wMywxMi4xOCwyNy4yMiwyNy4yMiwyNy4yMiwxMi4zMywwLDIyLjc0LTguMiwyNi4wOC0xOS40My4yLS42NS41Ni0uNjQuNzgtLjYzaDE0LjIyYy42MS0uMDIuNzcuMTIuNzEuNDUtMy41OCwxOS44My0yMC45NCwzNC44OC00MS44LDM0Ljg4LTIzLjQ2LDAtNDIuNDgtMTkuMDEtNDIuNDgtNDIuNDdzMTkuMDItNDIuNDgsNDIuNDgtNDIuNDhjMjAuOTMsMCwzOC4zMiwxNS4xNCw0MS44MywzNS4wNy4wNy4zNi0uMi40MS0uNDMuNDJoLTE0LjYxYy0uNDEuMDItLjU0LS4yMy0uNy0uNzQtMy4zMy0xMS4yNy0xMy43Ni0xOS40OC0yNi4xLTE5LjQ4LTE1LjA0LDAtMjcuMjIsMTIuMTgtMjcuMjIsMjcuMjIiLz4KICA8L2c+CiAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTYzLjE2LDk0Ljc0YzkuMjUsMCwxNi43OSw0LjI3LDIyLjYyLDEyLjgyLDIuNzUsNC42NSw0LjEyLDkuMzgsNC4xMiwxNC4xNywwLDguNDItMy43MywxNS41Ny0xMS4yMSwyMS40Ni00Ljg1LDMuMzctOS44OCw1LjA0LTE1LjEsNS4wNGgtMS4xMWMtNy44LDAtMTQuNTgtMy4zNS0yMC4zNC0xMC4wNC0zLjgyLTUuMjEtNS43My0xMC4zMi01LjczLTE1LjM0di0yLjI4YzAtOC40OCw0LjEyLTE1LjcxLDEyLjMzLTIxLjcsNC45Mi0yLjc1LDkuNzMtNC4xMiwxNC40Mi00LjEyTTQ1Ljc4LDEyMS40OXYuMjRjMCw3LjgsNC4xOSwxMy4yOSwxMi41NywxNi40NiwxLjY1LjQ1LDMuMzMuNjgsNS4wNS42OCw3LjYsMCwxMy4wOS00LjI3LDE2LjQ1LTEyLjgxbC40My0zLjY1di0xLjE2YzAtNy43My00LjExLTEzLjE0LTEyLjMzLTE2LjIyLTEtLjQ1LTIuMjItLjY3LTMuNjQtLjY4aC0yLjMzYy02LjE4LDAtMTEuMTMsMy40My0xNC44NiwxMC4yOS0uOTEsMi4zMy0xLjM2LDQuNjEtMS4zNiw2Ljg1Ii8+CiAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTk2LjY1LDEwNC42OWg3LjgybC40NC40M3YzLjQ1YzMuODUtMi41OSw3LjQ2LTMuODgsMTAuODItMy44OGgyLjM5YzYuNywwLDEyLjM0LDMuMzIsMTYuOTQsOS45NCwyLDMuNDcsMy4wMSw3LjI0LDMuMDEsMTEuMzIsMCw3Ljc3LTQuMDUsMTMuOTgtMTIuMTQsMTguNjQtMy4wOCwxLjE2LTUuNzUsMS43NS04LjAyLDEuNzVoLTEuNTVjLTMuODgsMC03LjcxLTEuMzItMTEuNDUtMy45NHYyNC4wOGwtLjQ0LjQ0aC03LjgybC0uNDMtLjQ0di02MS4zNmwuNDMtLjQzWk0xMDQuOTEsMTI2LjE1YzAsNS40NywzLjI1LDkuMyw5Ljc2LDExLjVsMi41Ny4xOWM1LjYsMCw5LjU4LTMuMDIsMTEuOTQtOS4wOGwuNDQtMy4yNWMwLTUuNi0zLjA1LTkuNTgtOS4xMy0xMS45NGwtMy4wMS0uNDRoLS42OGMtNi4wMiwwLTkuOTksMy41NC0xMS44OSwxMC42M3YyLjM4WiIvPgogIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0xNDQuODEsODMuNjJoOC4xMWwuNDMuNDR2MjEuMDZoMjYuNDZsLjQ5LjQ5djcuODFsLS40OS40OGgtMjYuNDZ2MTMuMjFjMCw1LjgyLDMuMzcsOS44NywxMC4xLDEyLjEzbDIuNjcuMjVjNS41NywwLDkuNy0zLDEyLjM4LTguOThoOC43NHYuMmMwLDMuNC0yLjMyLDcuNTItNi45NCwxMi4zOC00LjM0LDMuNDMtOC44NCw1LjE0LTEzLjUsNS4xNGgtMS41NWMtNS42NiwwLTEwLjgyLTIuNDctMTUuNDktNy40Mi0zLjU5LTMuNTktNS4zOC05LjY1LTUuMzgtMTguMTV2LTM4LjU5bC40NC0uNDRaIi8+CiAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTE5OC4wNiw5MS4xYzIuODkuNTksNC4zMiwxLjg2LDQuMzIsMy44M3YuOTdjLS40OCwyLjg1LTEuOTMsNC4yNy00LjMyLDQuMjctMy0uNjQtNC41MS0yLjE3LTQuNTEtNC41Ni40MS0zLjAxLDEuOTMtNC41Miw0LjUxLTQuNTJNMTkzLjk4LDEwNC40NWg3Ljk2bC40My40NHY0Mi45MWwtLjQzLjQzaC03Ljk2bC0uNDMtLjQzdi00Mi45MWwuNDMtLjQ0WiIvPgogIDxwYXRoIGNsYXNzPSJzdDEiIGQ9Ik0yNzkuNDcsMTA0Ljg0YzQuMiwwLDguMzMsMS4zNCwxMi4zOSw0LjAzaC4yM3YtMy41OWwuNDQtLjQ0aDcuODdsLjQzLjQ0djQyLjUzbC0uNDMuNDNoLTcuODdsLS40NC0uNDN2LTMuNmgtLjIzYy0zLjk5LDIuNjktOC4zNCw0LjAzLTEzLjA3LDQuMDMtNy4xOCwwLTEzLjE3LTMuNDQtMTcuOTYtMTAuMzQtMi4wOS0zLjU5LTMuMTUtNi44OS0zLjE1LTkuOXYtMi4yM2MwLTcuODksNC4xMy0xNC4xOSwxMi4zNy0xOC44OSwzLjIyLTEuMzYsNi4zNS0yLjA0LDkuNDItMi4wNE0yNjUuNCwxMjYuNzNjMCw2LjE4LDMuNDYsMTAuNSwxMC4zOCwxMi45Ni43Mi4zNiwxLjc1LjU0LDMuMTEuNTRoLjQ4YzYuMjgsMCwxMC42Mi0zLjM2LDEzLjAxLTEwLjA5LjMzLS43NS40OC0xLjguNDgtMy4xNnYtLjk3YzAtNi4wMy0zLjM3LTEwLjI4LTEwLjEtMTIuNzdsLTMuNC0uNDhoLS40OGMtNi40MSwwLTEwLjgzLDMuNy0xMy4yNiwxMS4xMWwtLjIzLDIuODZaIi8+CiAgPHBhdGggY2xhc3M9InN0MSIgZD0iTTMyOC41LDEwMi44OWgyLjA0YzEwLjc0LDAsMTguMjEsNC4zMiwyMi4zNywxMi45Ny0uODcuNTItMy40OCwxLjQ4LTcuODEsMi45MS0yLjUtNS44LTcuMTgtOC42OS0xNC4wOC04LjY5aC0zLjAxYy03LjY3LjY1LTExLjUxLDIuNy0xMS41MSw2LjE2LDAsMi4zMywzLjUzLDMuODksMTAuNTksNC42Niw5LjksMi4wOCwxNS45MSwzLjQzLDE4LjAxLDQuMDgsNC40MywyLjU2LDYuNjQsNS43OSw2LjY1LDkuNzEsMCw1LjQ3LTQuNTMsOS43Mi0xMy41OSwxMi43Ny0yLjA3LjUxLTQuMTQuNzctNi4yMS43N2gtNC44NmMtOS4zMiwwLTE2LjI0LTQuMDctMjAuNzMtMTIuMTlsLS4yNS0uNzdjNC41Ny0xLjgxLDcuNjItMi43Miw3LjYyLTIuNzIsMCwwLC4wOC4yLjQ1Ljk3LDMuMTYsNS4wMiw3LjI1LDcuNTIsMTIuMjMsNy41Mmg1Ljc3YzQuMDEsMCw3LjMxLTEuNDIsOS45MS00LjI3bC40My0xLjVjMC0yLjU2LTMuMDgtNC4xMS05LjIzLTQuNjZsLTE5LjEyLTQuMjdjLTQuNi0yLjMzLTYuODktNS43LTYuODktMTAuMSwwLTUuNiw0LjkyLTkuODUsMTQuNzUtMTIuNzcsMS45NC0uMzksNC4wOS0uNTgsNi40Ni0uNTgiLz4KICA8cGF0aCBjbGFzcz0ic3QxIiBkPSJNMjE2LjQ1LDEyNi41NWMwLDcuNjIsNi4xNywxMy43OSwxMy43OCwxMy43OSw2LjI0LDAsMTEuNTMtNC4xNSwxMy4yMi05Ljg0LjEtLjMzLjI5LS4zMi4zOS0uMzJoNy4yMWMuMzEsMCwuMzguMDcuMzYuMjMtMS44MSwxMC4wNS0xMC42MSwxNy42Ny0yMS4xOSwxNy42Ny0xMS44OSwwLTIxLjUyLTkuNjQtMjEuNTItMjEuNTNzOS42NC0yMS41MywyMS41Mi0yMS41M2MxMC42MSwwLDE5LjQzLDcuNjcsMjEuMjEsMTcuNzcuMDMuMTktLjEuMjEtLjIyLjIxaC03LjQxYy0uMiwwLS4yNy0uMTItLjM0LS4zNy0xLjY5LTUuNzEtNi45OC05Ljg3LTEzLjIzLTkuODctNy42MiwwLTEzLjc4LDYuMTctMTMuNzgsMTMuNzkiLz4KICA8cG9seWdvbiBjbGFzcz0ic3QxIiBwb2ludHM9IjYwLjk1IDg5Ljc3IDY2Ljk0IDg5Ljc3IDcxLjk5IDgwLjk0IDYzLjQ3IDgwLjk0IDYwLjk1IDg5Ljc3Ii8+Cjwvc3ZnPg=="></div>
+      <div style="min-width:0">
+        <div class="eyebrow">Academia CV+ · Programa de Lealtad</div>
+        <h1>Simulador SUMÁS</h1>
+        <p class="sub">Practica la afiliación, la lectura de etiquetas, los tramos de descuento y los términos y condiciones antes del lanzamiento del 1 de diciembre.</p>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Módulos" id="tabs"></nav>
+
+  <!-- INICIO -->
+  <section id="v-inicio" class="vista" role="tabpanel">
+    <div class="card">
+      <div class="eyebrow">Cómo funciona</div>
+      <h2>Aprende haciendo y luego demuestra lo que sabes</h2>
+      <p>Cada módulo tiene dos modos. En <b>Practicar</b> trabajas en pantallas como las de Odoo y el pase SUMÁS, sin límite de intentos y con la explicación de cada error. En <b>Misión</b> respondes preguntas nuevas que se califican solas. Para aprobar un módulo necesitas <b>80 % o más</b> en su misión.</p>
+      <div class="dos" style="margin-top:4px">
+        <div class="caja cian"><b>Tu avance</b><div class="barra"><i id="avBar" style="width:0%"></i></div><span class="sub num" id="avTxt">0 de 4 misiones aprobadas</span></div>
+        <div class="caja oro"><b>Recuerda</b><span>Los clientes, puntos y montos son inventados. Practica aquí; en Odoo real solo trabajas con clientes reales.</span></div>
+      </div>
+    </div>
+    <div class="misiones" id="misiones" style="margin-top:16px"></div>
+  </section>
+
+  <!-- AFILIACIÓN -->
+  <section id="v-afi" class="vista" role="tabpanel" hidden>
+    <div class="card">
+      <div class="eyebrow">Módulo 1</div>
+      <h2>Afiliación al programa</h2>
+      <p class="sub">El cliente se afilia solo, desde su teléfono, en tres páginas: Bienvenida, Datos y Confirmación. Tu trabajo es enviarle el enlace, acompañarlo y, al final, confirmar su pedido en Odoo.</p>
+      <div class="modo" data-mod="afi"><button type="button" aria-pressed="true" data-m="p">Practicar</button><button type="button" aria-pressed="false" data-m="m">Misión</button></div>
+    </div>
+    <div id="afi-p" class="af" style="margin-top:16px">
+      <div class="tel"><div class="bar"><i></i></div><div class="pant" id="telPant"></div><div class="url" id="telUrl">afiliacion.sumas · práctica</div></div>
+      <div class="card paso-tip"><div class="pt-n" id="ptN"></div><div id="ptTxt"></div></div>
+    </div>
+    <div id="afi-m" class="hide" style="margin-top:16px"></div>
+  </section>
+
+  <!-- ETIQUETAS -->
+  <section id="v-eti" class="vista" role="tabpanel" hidden>
+    <div class="card">
+      <div class="eyebrow">Módulo 2</div>
+      <h2>Lectura de las etiquetas 1 y 2</h2>
+      <p class="sub">La Etiqueta 1 (Perfil) dice cuánto vale el cliente y qué tan listo está para volver. La Etiqueta 2 (Comportamiento) dice cuántas veces nos eligió. Odoo las calcula solas; tú las lees.</p>
+      <div class="modo" data-mod="eti"><button type="button" aria-pressed="true" data-m="p">Practicar</button><button type="button" aria-pressed="false" data-m="m">Misión</button></div>
+    </div>
+    <div id="eti-p" style="margin-top:16px;display:flex;flex-direction:column;gap:16px">
+      <div class="card">
+        <h3>La regla en una tabla</h3>
+        <div class="tabla-w"><table>
+          <thead><tr><th>Pieza</th><th>Se calcula con</th><th>Valores</th></tr></thead>
+          <tbody>
+            <tr><td><b>Metal</b></td><td>Promedio de sus órdenes oftálmicas (lentes o aros)</td><td>Cobre: menos de $150 · Plata: $150 a $249.99 · Oro: $250 o más</td></tr>
+            <tr><td><b>Temperatura</b><br><span class="excl">solo clientes</span></td><td>Tiempo desde su última compra oftálmica</td><td>Calentando: menos de 1 año · Caliente: 1 a 2 años · Tibio: 2 a 3 años · Frío: 3 años o más</td></tr>
+            <tr><td><b>Decisión</b><br><span class="excl">solo cotizantes</span></td><td>Tiempo desde su último presupuesto</td><td>Decidiendo: menos de 1 mes · Postergando: 1 mes o más</td></tr>
+            <tr><td><b>Comportamiento</b></td><td>Cuántas compras (clientes) o presupuestos (cotizantes)</td><td>Clientes: Primerizo (1) · Leal (2 o más) · Cotizantes: Directo (1) · Comparador (2 o más)</td></tr>
+          </tbody>
+        </table></div>
+        <p class="sub" style="font-size:13px"><b>Cliente</b> = tiene al menos un pedido de venta oftálmico. <b>Cotizante</b> = solo tiene presupuestos. Las compras de lentes de contacto, accesorios o audiología <b>no cuentan</b> para las etiquetas.</p>
+      </div>
+      <div class="card">
+        <div class="fila" style="justify-content:space-between"><h3>Descifra la etiqueta</h3><button class="btn cian" type="button" id="etiNuevo">Otro cliente</button></div>
+        <p class="sub" style="font-size:13px">Lee el historial del cliente y arma sus dos etiquetas como las calcularía Odoo.</p>
+        <div id="etiCaso"></div>
+      </div>
+      <div class="card">
+        <div class="fila" style="justify-content:space-between"><h3>Interpreta la etiqueta</h3><button class="btn cian" type="button" id="intNuevo">Otra etiqueta</button></div>
+        <p class="sub" style="font-size:13px">Ves la etiqueta en la tarjeta de Odoo. ¿Quién es este cliente?</p>
+        <div id="intCaso"></div>
+      </div>
+    </div>
+    <div id="eti-m" class="hide" style="margin-top:16px"></div>
+  </section>
+
+  <!-- TRAMOS -->
+  <section id="v-tra" class="vista" role="tabpanel" hidden>
+    <div class="card">
+      <div class="eyebrow">Módulo 3</div>
+      <h2>Puntos y tramos de descuento</h2>
+      <p class="sub">El cliente suma 1 punto por cada $1 pagado. Los puntos no son dinero: desbloquean un porcentaje de descuento por tramos fijos.</p>
+      <div class="modo" data-mod="tra"><button type="button" aria-pressed="true" data-m="p">Practicar</button><button type="button" aria-pressed="false" data-m="m">Misión</button></div>
+    </div>
+    <div id="tra-p" style="margin-top:16px;display:flex;flex-direction:column;gap:16px">
+      <div class="dos">
+        <div class="card">
+          <h3>Tramos</h3>
+          <div class="tabla-w"><table><thead><tr><th>Puntos acumulados</th><th class="r">Descuento</th></tr></thead>
+          <tbody><tr><td>Menos de 60</td><td class="r">Aún ninguno</td></tr><tr><td>60 a 119</td><td class="r">5 %</td></tr><tr><td>120 a 179</td><td class="r">10 %</td></tr><tr><td>180 a 239</td><td class="r">15 %</td></tr><tr><td>240 a 299</td><td class="r">20 %</td></tr><tr><td>300 o más</td><td class="r">25 % (tope)</td></tr></tbody></table></div>
+          <p class="sub" style="font-size:13px">Los tramos son fijos: con 115 puntos el cliente tiene 5 %, no 10 %. Al canjear se gastan los puntos del tramo elegido y el resto se queda en su cuenta.</p>
+        </div>
+        <div class="card">
+          <h3>Reglas clave</h3>
+          <ul class="lst">
+            <li><b>Suman puntos:</b> lentes, aros, antirreflejos y accesorios. No suman: lentes de contacto ni audiología.</li>
+            <li><b>Base de puntos:</b> lo que realmente pagó, con IVA y después de promociones. La parte cubierta por el descuento SUMÁS no genera puntos.</li>
+            <li><b>Para canjear:</b> orden oftálmica completa (lentes y aro) a precio regular. No se combina con promociones.</li>
+            <li><b>El descuento aplica</b> solo a lentes, aros y antirreflejos, nunca a accesorios ni lentes de contacto.</li>
+            <li><b>Tope:</b> hasta 25 % y máximo $150 de descuento por compra.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="card">
+        <div class="fila" style="justify-content:space-between"><h3>Presupuesto de práctica</h3><button class="btn cian" type="button" id="traNuevo">Otro presupuesto</button></div>
+        <p class="sub" style="font-size:13px">Calcula primero y luego comprueba con el botón Recompensa, igual que en Odoo.</p>
+        <div id="traCaso"></div>
+      </div>
+    </div>
+    <div id="tra-m" class="hide" style="margin-top:16px"></div>
+  </section>
+
+  <!-- TyC -->
+  <section id="v-tyc" class="vista" role="tabpanel" hidden>
+    <div class="card">
+      <div class="eyebrow">Módulo 4</div>
+      <h2>Términos y condiciones</h2>
+      <p class="sub">Versión 4, octubre de 2026. Lo que el cliente acepta al afiliarse y lo que tú debes poder explicarle en tienda.</p>
+      <div class="modo" data-mod="tyc"><button type="button" aria-pressed="true" data-m="p">Practicar</button><button type="button" aria-pressed="false" data-m="m">Misión</button></div>
+    </div>
+    <div id="tyc-p" style="margin-top:16px;display:flex;flex-direction:column;gap:16px">
+      <div class="dos" id="tycRes"></div>
+      <div class="card">
+        <div class="fila" style="justify-content:space-between"><h3>¿Se puede o no se puede?</h3><button class="btn cian" type="button" id="tycNuevo">Otro caso</button></div>
+        <div id="tycCaso"></div>
+      </div>
+    </div>
+    <div id="tyc-m" class="hide" style="margin-top:16px"></div>
+  </section>
+
+  <p class="pie">Ópticas CV+ · Simulador SUMÁS · Basado en los Términos y Condiciones del Programa de Lealtad CV+ (versión 4) y en Odoo de pruebas</p>
+</div>
+
+<script>
+/* ======================= utilidades ======================= */
+var D=document;
+function $(id){return D.getElementById(id);}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function rnd(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+function pick(a){return a[Math.floor(Math.random()*a.length)];}
+function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+function money(n){return '$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function r2(n){return Math.round(n*100)/100;}
+var HOY=new Date(); HOY.setHours(12,0,0,0);
+function haceDias(d){var x=new Date(HOY);x.setDate(x.getDate()-d);return x;}
+function fecha(d){return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+d.getFullYear();}
+function aviso(t){var a=D.createElement('div');a.className='toast';a.textContent=t;D.body.appendChild(a);setTimeout(function(){a.remove();},3000);}
+function lsG(k){try{var v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}}
+function lsS(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+
+var NOMBRES=['Marta Elena Ríos','Carlos Alberto Peña','Sofía Lemus','Jorge Arévalo','Daniela Cáceres','Luis Fernando Mata','Gabriela Menjívar','Ricardo Alas','Andrea Villeda','Mauricio Cornejo','Karla Rosales','Héctor Quintanilla','Paola Zelaya','Ernesto Bonilla','Valeria Escalante','Roberto Ayala'];
+
+/* ======================= resultados ======================= */
+var MIS=[
+  {id:'afi',n:'Afiliación',d:'Las 3 páginas, qué datos pide y qué sigue en Odoo.',tab:'v-afi'},
+  {id:'eti',n:'Etiquetas 1 y 2',d:'Arma e interpreta Perfil y Comportamiento.',tab:'v-eti'},
+  {id:'tra',n:'Puntos y tramos',d:'Tramos, tope de $150 y puntos que gana cada compra.',tab:'v-tra'},
+  {id:'tyc',n:'Términos y condiciones',d:'Qué se puede y qué no se puede según el programa.',tab:'v-tyc'}
+];
+// En la Academia el simulador vive en el modal SUMÁS (iframe). Las notas se guardan por usuario
+// en Firestore a través de la Academia (progress/{uid}, campo sumas.sim). Abierto solo, usa este navegador.
+function ACAD(){ try{ var p=window.parent; return (p&&p!==window&&typeof p.CVP_registrarSimulador==='function')?p:null; }catch(e){ return null; } }
+var RES=(function(){ var a=ACAD(); if(a){ try{ return JSON.parse(JSON.stringify(a.CVP_resultadosSimulador()||{})); }catch(e){ return {}; } } return lsG('sumas-sim-res')||{}; })();
+function guardarRes(id,ac,tot){
+  var pct=Math.round(ac/tot*100), fechaR=new Date().toISOString(), a=ACAD();
+  var dato={tipo:'sumas-simulador',mision:id,nota:pct,aciertos:ac,total:tot,fecha:fechaR};
+  if(a){ try{ var r0=a.CVP_registrarSimulador(dato); RES[id]=JSON.parse(JSON.stringify(r0)); }catch(e){} }
+  else { var r=RES[id]||{mejor:0,intentos:0}; r.ultimo=pct; r.mejor=Math.max(r.mejor,pct); r.intentos++; r.fecha=fechaR; RES[id]=r; lsS('sumas-sim-res',RES); }
+  pintarInicio(); pintarTabs();
+}
+
+/* ======================= navegación ======================= */
+var TABS=[['v-inicio','Inicio',null]].concat(MIS.map(function(m){return [m.tab,m.n,m.id];}));
+var vistaAct='v-inicio';
+function pintarTabs(){
+  $('tabs').innerHTML=TABS.map(function(t){
+    var ok=t[2]&&RES[t[2]]&&RES[t[2]].mejor>=80;
+    return '<button class="tab" role="tab" type="button" data-v="'+t[0]+'" aria-selected="'+(t[0]===vistaAct)+'">'+(t[2]?'<span class="ok'+(ok?' si':'')+'"></span>':'')+esc(t[1])+'</button>';
+  }).join('');
+}
+function ver(v){
+  vistaAct=v; D.querySelectorAll('.vista').forEach(function(s){s.hidden=s.id!==v;}); pintarTabs();
+  try{ location.hash=v.slice(2); }catch(e){}
+  window.scrollTo(0,0);
+}
+$('tabs').addEventListener('click',function(e){var b=e.target.closest('.tab');if(b)ver(b.dataset.v);});
+function pintarInicio(){
+  var aprob=MIS.filter(function(m){return RES[m.id]&&RES[m.id].mejor>=80;}).length;
+  $('avBar').style.width=(aprob/MIS.length*100)+'%'; $('avTxt').textContent=aprob+' de '+MIS.length+' misiones aprobadas';
+  $('misiones').innerHTML=MIS.map(function(m,i){
+    var r=RES[m.id], st=!r?'<span class="chip ch-gr">Sin intentar</span>':r.mejor>=80?'<span class="chip ch-ok">Aprobado · '+r.mejor+' %</span>':'<span class="chip ch-al">Mejor nota · '+r.mejor+' %</span>';
+    return '<button class="mis" type="button" data-v="'+m.tab+'"><div class="top"><span class="eyebrow">Módulo '+(i+1)+'</span>'+st+'</div><h3>'+esc(m.n)+'</h3><p class="sub" style="font-size:13px">'+esc(m.d)+'</p>'+(r?'<span class="sub num" style="font-size:12px">'+r.intentos+' intento'+(r.intentos>1?'s':'')+'</span>':'')+'</button>';
+  }).join('');
+}
+$('misiones').addEventListener('click',function(e){var b=e.target.closest('.mis');if(b)ver(b.dataset.v);});
+D.querySelectorAll('.modo').forEach(function(m){
+  m.addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b) return;
+    var id=m.dataset.mod, mi=b.dataset.m==='m';
+    m.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===b);});
+    $(id+'-p').classList.toggle('hide',mi); $(id+'-m').classList.toggle('hide',!mi);
+    if(mi) iniciarMision(id);
+  });
+});
+
+/* ======================= motor de misiones ======================= */
+function iniciarMision(id){
+  var qs=GEN[id](), i=0, ac=0, cont=$(id+'-m');
+  function paso(){
+    if(i>=qs.length){ return fin(); }
+    var q=qs[i], orden=shuffle(q.ops.map(function(o,k){return k;}));
+    cont.innerHTML='<div class="card"><div class="q-head"><span class="eyebrow">Pregunta '+(i+1)+' de '+qs.length+'</span><div class="q-prog barra"><i style="width:'+(i/qs.length*100)+'%"></i></div><span class="chip ch-ci num">'+ac+' correctas</span></div>'+
+      (q.ctx?'<div>'+q.ctx+'</div>':'')+'<p class="q-txt">'+q.q+'</p><div class="ops">'+orden.map(function(k){return '<button type="button" class="op" data-k="'+k+'">'+q.ops[k]+'</button>';}).join('')+'</div><div id="qfb"></div></div>';
+    cont.querySelectorAll('.op').forEach(function(b){b.addEventListener('click',function(){
+      var k=+b.dataset.k, bien=k===q.c; if(bien) ac++;
+      cont.querySelectorAll('.op').forEach(function(x){x.disabled=true; if(+x.dataset.k===q.c) x.classList.add('bien');});
+      if(!bien) b.classList.add('malo');
+      $('qfb').innerHTML='<div class="fb '+(bien?'ok':'mal')+'" style="margin-top:6px"><b>'+(bien?'Correcto.':'No es correcto.')+'</b><span>'+q.x+'</span><div><button class="btn prim" type="button" id="qsig">'+(i+1<qs.length?'Siguiente':'Ver resultado')+'</button></div></div>';
+      $('qsig').addEventListener('click',function(){i++;paso();}); $('qsig').focus();
+    });});
+  }
+  function fin(){
+    var pct=Math.round(ac/qs.length*100), ok=pct>=80;
+    guardarRes(id,ac,qs.length);
+    cont.innerHTML='<div class="card" style="align-items:flex-start"><span class="eyebrow">Resultado de la misión</span><span class="res '+(ok?'c-ok':'')+'" style="color:'+(ok?'var(--ok)':'var(--cr)')+'">'+pct+' %</span><p>'+ac+' de '+qs.length+' correctas. '+(ok?'Aprobaste este módulo.':'Necesitas 80 % para aprobar. Repasa en Practicar y vuelve a intentarlo: las preguntas cambian en cada intento.')+'</p><div class="fila"><button class="btn prim" type="button" id="qOtra">Intentar de nuevo</button><button class="btn" type="button" id="qIni">Ir al inicio</button></div></div>';
+    $('qOtra').addEventListener('click',function(){iniciarMision(id);}); $('qIni').addEventListener('click',function(){ver('v-inicio');});
+  }
+  paso();
+}
+
+/* ======================= MÓDULO 2 · ETIQUETAS ======================= */
+var METAL=[['Cobre',0,149.99],['Plata',150,249.99],['Oro',250,1e9]];
+var TEMP=[['Calentando',0,364],['Caliente',365,729],['Tibio',730,1094],['Frío',1095,1e9]];
+function metalDe(p){return p<150?'Cobre':p<250?'Plata':'Oro';}
+function tempDe(d){return d<365?'Calentando':d<730?'Caliente':d<1095?'Tibio':'Frío';}
+function genCliente(){
+  var cot=Math.random()<.3, n=cot?rnd(1,3):rnd(1,4), metal=pick(['Cobre','Plata','Oro']);
+  var base=metal==='Cobre'?[60,140]:metal==='Plata'?[155,245]:[260,520];
+  var ult=cot?(Math.random()<.5?rnd(4,24):rnd(40,240)):pick([rnd(30,330),rnd(400,700),rnd(760,1060),rnd(1130,1600)]);
+  var filas=[], dias=ult;
+  for(var k=0;k<n;k++){
+    filas.push({d:dias,tipo:cot?'Presupuesto':'Pedido de venta',prod:pick(['Aro + lentes monofocales','Aro + lentes progresivos','Lentes con antirreflejo','Aro + lentes Akkurat']),m:r2(rnd(base[0]*100,base[1]*100)/100),of:true});
+    dias+=rnd(200,500);
+  }
+  // promedio exacto en el rango del metal
+  var prom=filas.reduce(function(a,f){return a+f.m;},0)/n;
+  if(metalDe(prom)!==metal){ filas.forEach(function(f){f.m=r2(rnd(base[0]*100,base[1]*100)/100);}); filas.forEach(function(f){f.m=filas[0].m;}); prom=filas[0].m; }
+  // distractores que no cuentan
+  if(!cot&&Math.random()<.6){ filas.push({d:Math.max(3,ult-rnd(10,120)),tipo:'Pedido de venta',prod:pick(['Lentes de contacto mensuales','Estuche y microfibra','Solución para lentes de contacto']),m:r2(rnd(800,9000)/100),of:false}); }
+  filas.sort(function(a,b){return a.d-b.d;});
+  var et1=metal+' '+(cot?(ult<30?'Decidiendo':'Postergando'):tempDe(ult));
+  var et2=cot?(n>=2?'Comparador':'Directo'):(n>=2?'Leal':'Primerizo');
+  return {nombre:pick(NOMBRES),cot:cot,n:n,filas:filas,prom:r2(prom),ult:ult,metal:metal,t:et1.split(' ')[1],et1:et1,et2:et2};
+}
+function tablaHist(c){
+  return '<div class="odoo"><div class="o-nav"><b>Contactos</b><span>'+esc(c.nombre)+'</span><span class="pr">Práctica · hoy '+fecha(HOY)+'</span></div><div class="o-body"><div class="tabla-w"><table class="o-tabla"><thead><tr><th>Fecha</th><th>Documento</th><th>Productos</th><th class="r">Total</th></tr></thead><tbody>'+
+    c.filas.map(function(f){return '<tr><td class="num">'+fecha(haceDias(f.d))+'</td><td>'+f.tipo+'</td><td>'+esc(f.prod)+'</td><td class="r">'+money(f.m)+'</td></tr>';}).join('')+'</tbody><tfoot><tr class="prom"><td colspan="3"><b>Promedio de '+(c.cot?'presupuestos':'compras')+' oftálmic'+(c.cot?'os':'as')+'</b> <span class="excl">('+c.n+' '+(c.cot?(c.n>1?'presupuestos':'presupuesto'):(c.n>1?'órdenes':'orden'))+' con lentes o aros)</span></td><td class="r"><b>'+money(c.prom)+'</b></td></tr></tfoot></table></div></div></div>';
+}
+function explicar(c){
+  var of=c.filas.filter(function(f){return f.of;}), no=c.filas.length-of.length;
+  return (no?'Primero descarta lo que no cuenta: '+no+' compra'+(no>1?'s':'')+' sin lentes ni aros. ':'')+
+    'Es <b>'+(c.cot?'cotizante':'cliente')+'</b> porque '+(c.cot?'solo tiene presupuestos oftálmicos':'tiene pedidos de venta oftálmicos')+'. '+
+    'Promedio: '+money(c.prom)+' → <b>'+c.metal+'</b>. '+
+    (c.cot?'Último presupuesto hace '+c.ult+' días → <b>'+c.t+'</b>. ':'Última compra oftálmica hace '+(c.ult>=365?(c.ult/365).toFixed(1)+' años':Math.round(c.ult/30)+' meses')+' → <b>'+c.t+'</b>. ')+
+    of.length+' '+(c.cot?'presupuesto'+(of.length>1?'s':''):'compra'+(of.length>1?'s':''))+' oftálmica'+(of.length>1?'s':'')+' → <b>'+c.et2+'</b>.';
+}
+var etiC=null, etiSel={};
+function pintarEti(){
+  etiC=genCliente(); etiSel={};
+  var g=function(t,k,vals){return '<div class="sel-g"><span class="t">'+t+'</span><div class="chips" data-k="'+k+'">'+vals.map(function(v){return '<button type="button" class="chip-b" aria-pressed="false" data-v="'+v+'">'+v+'</button>';}).join('')+'</div></div>';};
+  $('etiCaso').innerHTML=tablaHist(etiC)+'<div class="dos" style="margin-top:12px">'+g('Metal','m',['Cobre','Plata','Oro'])+g('Temperatura o Decisión','t',['Calentando','Caliente','Tibio','Frío','Decidiendo','Postergando'])+g('Comportamiento (Etiqueta 2)','c',['Primerizo','Leal','Directo','Comparador'])+'</div><div class="fila" style="margin-top:12px"><button class="btn prim" type="button" id="etiCheck" disabled>Comprobar</button></div><div id="etiFb" style="margin-top:10px"></div>';
+  $('etiCaso').querySelectorAll('.chips').forEach(function(ch){ch.addEventListener('click',function(e){var b=e.target.closest('.chip-b');if(!b)return;ch.querySelectorAll('.chip-b').forEach(function(x){x.setAttribute('aria-pressed',x===b);});etiSel[ch.dataset.k]=b.dataset.v;$('etiCheck').disabled=!(etiSel.m&&etiSel.t&&etiSel.c);});});
+  $('etiCheck').addEventListener('click',function(){
+    var ok=etiSel.m===etiC.metal&&etiSel.t===etiC.t&&etiSel.c===etiC.et2;
+    $('etiFb').innerHTML='<div class="fb '+(ok?'ok':'mal')+'"><b>'+(ok?'Correcto':'Revisa tu respuesta')+': <span class="bdg perfil">'+etiC.et1+'</span> <span class="bdg comp">'+etiC.et2+'</span></b><span>'+explicar(etiC)+'</span></div>';
+  });
+}
+$('etiNuevo').addEventListener('click',pintarEti);
+
+var INTERP=[
+  {e1:'Oro Frío',e2:'Leal',d:'Compró varias veces con buen ticket, pero hace más de 3 años que no vuelve.',a:'Es un cliente valioso que se está perdiendo: dale prioridad.'},
+  {e1:'Plata Tibio',e2:'Leal',d:'Compró varias veces con ticket medio y su última compra fue hace 2 a 3 años.',a:'Ya pasó su tiempo habitual: necesita una razón concreta para volver.'},
+  {e1:'Oro Frío',e2:'Comparador',d:'No existe: Frío es para clientes y Comparador para cotizantes.',a:''},
+  {e1:'Oro Postergando',e2:'Comparador',d:'Nunca ha comprado; tiene 2 o más presupuestos con promedio de $250 o más y el último fue hace más de un mes.',a:'Retoma la cotización con argumentos de valor.'},
+  {e1:'Plata Caliente',e2:'Primerizo',d:'Una sola compra de valor medio hace 1 a 2 años.',a:'Está en su momento de recompra: recuérdale su revisión e invítalo a SUMÁS.'},
+  {e1:'Cobre Calentando',e2:'Primerizo',d:'Una sola compra de menos de $150 hace menos de un año.',a:'Invítalo a SUMÁS y háblale de beneficios concretos: puntos y descuento.'},
+  {e1:'Plata Decidiendo',e2:'Directo',d:'Cotizó una sola vez, entre $150 y $249.99, hace menos de un mes.',a:'Probablemente sabe lo que quiere: dale seguimiento pronto y facilítale el cierre.'},
+  {e1:'Oro Calentando',e2:'Leal',d:'Varias compras de $250 o más; la última hace menos de un año.',a:'Reconócelo y agradécele; asegúrate de que guarde su pase.'},
+  {e1:'Cobre Frío',e2:'Primerizo',d:'Una sola compra de menos de $150 hace 3 años o más.',a:'El más difícil de recuperar: contacto amable, sin presión y con un beneficio claro.'},
+  {e1:'Oro Caliente',e2:'Primerizo',d:'Una sola compra de $250 o más hace 1 a 2 años.',a:'Alto valor en su ventana de recompra: lograr su segunda compra es la prioridad.'},
+  {e1:'Plata Postergando',e2:'Comparador',d:'Nunca ha comprado; 2 o más presupuestos de valor medio y el último hace más de un mes.',a:'Está comparando: explica con claridad las diferencias y el valor de cada opción.'}
+];
+var VALIDAS=INTERP.filter(function(x){return x.a;});
+function tarjetaOdoo(e1,e2,nom){
+  return '<div class="odoo" style="max-width:320px"><div class="o-body" style="gap:6px"><span class="bdg '+pick(['vig','pv','ven'])+'" style="align-self:flex-start">'+pick(['Vigente','Por vencer','Vencido'])+'</span><b>'+esc(nom)+'</b><span class="num">'+money(rnd(120,520))+'.00</span><div><span class="bdg perfil">'+e1+'</span></div><div><span class="bdg comp">'+e2+'</span></div></div></div>';
+}
+function pintarInt(){
+  var x=pick(VALIDAS), ops=shuffle([x].concat(shuffle(VALIDAS.filter(function(y){return y!==x;})).slice(0,3)));
+  $('intCaso').innerHTML=tarjetaOdoo(x.e1,x.e2,pick(NOMBRES))+'<div class="ops" style="margin-top:12px">'+ops.map(function(o){return '<button type="button" class="op" data-ok="'+(o===x)+'">'+esc(o.d)+'</button>';}).join('')+'</div><div id="intFb" style="margin-top:10px"></div>';
+  $('intCaso').querySelectorAll('.op').forEach(function(b){b.addEventListener('click',function(){
+    var ok=b.dataset.ok==='true'; $('intCaso').querySelectorAll('.op').forEach(function(z){z.disabled=true;if(z.dataset.ok==='true')z.classList.add('bien');}); if(!ok)b.classList.add('malo');
+    $('intFb').innerHTML='<div class="fb '+(ok?'ok':'mal')+'"><b>'+x.e1+' · '+x.e2+'</b><span>'+esc(x.d)+' '+esc(x.a)+'</span></div>';
+  });});
+}
+$('intNuevo').addEventListener('click',pintarInt);
+
+/* ======================= MÓDULO 3 · TRAMOS ======================= */
+var TRAMOS=[[60,5],[120,10],[180,15],[240,20],[300,25]];
+function tramoMax(p){var t=null;TRAMOS.forEach(function(x){if(p>=x[0])t=x;});return t;}
+var CAT={aro:'Aro oftálmico',len:'Lentes oftálmicos',ar:'Antirreflejo',acc:'Accesorio',lc:'Lentes de contacto'};
+function genPres(opts){
+  opts=opts||{};
+  var lineas=[], comp=opts.incompleta?false:Math.random()<.85;
+  var aro=rnd(6,38)*10-0.01+0.01, lu=rnd(4,30)*10;
+  if(comp||Math.random()<.5) lineas.push({t:'aro',n:pick(['Aro OVVO 2741','Aro acetato Milano','Aro titanio Kyoto','Aro metal Lisboa']),q:1,p:aro});
+  if(comp||!lineas.length) lineas.push({t:'len',n:pick(['Lente monofocal 1.60','Lente progresivo Akkurat ONE','Lente monofocal 1.56','Lente progresivo Luminex']),q:2,p:lu});
+  if(Math.random()<.35) lineas.push({t:'ar',n:'Antirreflejo azul',q:1,p:rnd(3,8)*10});
+  if(Math.random()<.45) lineas.push({t:'acc',n:pick(['Microfibra','Estuche rígido','Cordón para lentes']),q:rnd(1,2),p:pick([1.75,4.5,8,12])});
+  if(Math.random()<.3) lineas.push({t:'lc',n:'Lentes de contacto mensuales',q:1,p:pick([35,48,62,90])});
+  var tieneAro=lineas.some(function(l){return l.t==='aro';}), tieneLen=lineas.some(function(l){return l.t==='len';});
+  return {nombre:pick(NOMBRES),pts:opts.pts!=null?opts.pts:pick([35,59,60,75,115,119,120,150,179,180,215,240,260,299,300,345,410,520]),lineas:lineas,completa:tieneAro&&tieneLen};
+}
+function calcPres(p,tramo){
+  var baseOf=0,acc=0,lc=0;
+  p.lineas.forEach(function(l){var s=l.q*l.p; if(l.t==='aro'||l.t==='len'||l.t==='ar')baseOf+=s; else if(l.t==='acc')acc+=s; else lc+=s;});
+  var pct=tramo?tramo[1]:0, bruto=r2(baseOf*pct/100), desc=Math.min(bruto,150);
+  var total=r2(baseOf+acc+lc-desc), ganan=Math.floor(baseOf-desc+acc+1e-9);
+  return {baseOf:r2(baseOf),acc:r2(acc),lc:r2(lc),pct:pct,bruto:bruto,desc:r2(desc),tope:bruto>150,total:total,ganan:ganan,restan:tramo?p.pts-tramo[0]:p.pts};
+}
+var traP=null;
+function pintarTra(){
+  traP=genPres(); var t=tramoMax(traP.pts);
+  var filas=traP.lineas.map(function(l){var noOf=l.t==='acc'||l.t==='lc';return '<tr><td>'+esc(l.n)+'<br><span class="excl">'+CAT[l.t]+'</span></td><td class="r">'+l.q+'</td><td class="r">'+money(l.p)+'</td><td class="r">'+money(l.q*l.p)+'</td></tr>';}).join('');
+  $('traCaso').innerHTML='<div class="odoo"><div class="o-nav"><b>Ventas</b><span>Presupuestos / Nuevo</span><span class="pr">Práctica</span></div><div class="o-body">'+
+   '<div class="o-grid"><div class="o-f"><span class="l">Cliente</span><span>'+esc(traP.nombre)+'</span></div><div class="o-f"><span class="l">Lista de precios</span><span>Tarifa Pública (USD)</span></div><div class="o-f"><span class="l">Puntos SUMÁS</span><span class="num"><b>'+traP.pts+'</b> puntos</span></div><div class="o-f"><span class="l">Promociones</span><span>Ninguna (precio regular)</span></div></div>'+
+   '<div class="tabla-w"><table class="o-tabla"><thead><tr><th>Producto</th><th class="r">Cant.</th><th class="r">Precio unit.</th><th class="r">Subtotal</th></tr></thead><tbody id="traLin">'+filas+'</tbody></table></div>'+
+   '<div class="fila" style="justify-content:space-between"><div class="o-btns"><button class="o-btn p" type="button" id="traRec">Recompensa</button></div><div class="o-tot" id="traTot"><span>Total</span><b class="num">'+money(calcPres(traP,null).total)+'</b></div></div></div></div>'+
+   '<div class="card" style="margin-top:12px;box-shadow:none"><h3>Antes de aplicar, calcula</h3><div class="dos">'+
+   '<div class="sel-g"><span class="t">1. Tramo máximo que puede usar</span><div class="chips" data-k="t">'+['Ninguno','5 %','10 %','15 %','20 %','25 %'].map(function(v){return '<button type="button" class="chip-b" aria-pressed="false" data-v="'+v+'">'+v+'</button>';}).join('')+'</div></div>'+
+   '<div class="sel-g"><span class="t">2. Descuento en dólares con ese tramo</span><div class="fila"><input class="inp" id="traD" inputmode="decimal" placeholder="0.00" aria-label="Descuento en dólares"></div></div>'+
+   '<div class="sel-g"><span class="t">3. Puntos que gana con esta compra</span><div class="fila"><input class="inp" id="traG" inputmode="numeric" placeholder="0" aria-label="Puntos que gana"></div></div>'+
+   '</div><div class="fila"><button class="btn prim" type="button" id="traCheck">Comprobar</button></div><div id="traFb"></div></div>';
+  var selT=null;
+  $('traCaso').querySelector('.chips').addEventListener('click',function(e){var b=e.target.closest('.chip-b');if(!b)return;this.querySelectorAll('.chip-b').forEach(function(x){x.setAttribute('aria-pressed',x===b);});selT=b.dataset.v;});
+  $('traRec').addEventListener('click',function(){abrirRecompensa(traP);});
+  $('traCheck').addEventListener('click',function(){
+    var tm=traP.completa?t:null, c=calcPres(traP,tm), tTxt=tm?tm[1]+' %':'Ninguno';
+    var d=parseFloat(($('traD').value||'').replace(/[$,]/g,'')), g=parseInt($('traG').value,10);
+    var ok1=selT===tTxt, ok2=!isNaN(d)&&Math.abs(d-c.desc)<0.02, ok3=g===c.ganan;
+    var why=!traP.completa?'La orden <b>no es oftálmica completa</b> (necesita lentes y aro), así que no puede canjear aunque tenga '+traP.pts+' puntos.':
+      (!t?'Con '+traP.pts+' puntos todavía no desbloquea ningún tramo: el primero es 60.':
+      'Con '+traP.pts+' puntos el tramo máximo es <b>'+t[1]+' %</b> ('+t[0]+' puntos). Base de descuento (lentes, aros y antirreflejos): '+money(c.baseOf)+'. '+t[1]+' % = '+money(c.bruto)+(c.tope?', pero el tope es <b>$150</b>':'')+'. Le quedan '+c.restan+' puntos.');
+    $('traFb').innerHTML='<div class="fb '+(ok1&&ok2&&ok3?'ok':'mal')+'" style="margin-top:10px"><b>'+(ok1&&ok2&&ok3?'Todo correcto.':'Revisa: '+[ok1?'':'tramo',ok2?'':'descuento',ok3?'':'puntos ganados'].filter(Boolean).join(', ')+'.')+'</b><span>1. '+why+'</span><span>2. Descuento: <b>'+money(c.desc)+'</b>.</span><span>3. Puntos: pagará '+money(c.baseOf-c.desc)+' en artículos oftálmicos'+(c.acc?' + '+money(c.acc)+' en accesorios':'')+(c.lc?'; los lentes de contacto ('+money(c.lc)+') no suman':'')+' → <b>'+c.ganan+' puntos</b> (1 por cada $1 completo).</span></div>';
+  });
+}
+function abrirRecompensa(p){
+  var m=D.createElement('div'); m.className='modal';
+  var disp=p.completa?TRAMOS.filter(function(x){return p.pts>=x[0];}):[];
+  m.innerHTML='<div class="box" role="dialog" aria-modal="true" aria-label="Recompensas disponibles"><div class="mh">Recompensas disponibles<button class="o-btn" type="button" data-x>✕</button></div><div class="mb">'+
+    (disp.length?disp.map(function(x,i){return '<label class="rw"><input type="radio" name="rw" value="'+i+'"'+(i===disp.length-1?' checked':'')+'> '+x[1]+' % en lentes, aros y antirreflejos <span class="excl" style="margin-left:auto">'+x[0]+' pts</span></label>';}).join(''):
+    '<div class="fb info">'+(!p.completa?'No hay recompensas: la orden debe incluir lentes y aro.':'El cliente aún no desbloquea ningún tramo (necesita 60 puntos).')+'</div>')+
+    '</div><div class="mf">'+(disp.length?'<button class="o-btn p" type="button" data-ap>Aplicar</button>':'')+'<button class="o-btn" type="button" data-x>Cancelar</button></div></div>';
+  D.body.appendChild(m);
+  m.addEventListener('click',function(e){
+    if(e.target===m||e.target.closest('[data-x]')){m.remove();return;}
+    if(e.target.closest('[data-ap]')){
+      var x=disp[+m.querySelector('input[name=rw]:checked').value], c=calcPres(p,x);
+      var old=$('traLin').querySelector('.desc-line'); if(old) old.remove();
+      $('traLin').insertAdjacentHTML('beforeend','<tr class="desc-line"><td>'+x[1]+' % en productos específicos'+(c.tope?' <span class="chip ch-al">tope $150</span>':'')+'</td><td class="r">1</td><td class="r">-'+money(c.desc)+'</td><td class="r">-'+money(c.desc)+'</td></tr>');
+      $('traTot').innerHTML='<span>Usa '+x[0]+' pts · le quedan '+c.restan+'</span><b class="num">'+money(c.total)+'</b>';
+      m.remove(); aviso('Recompensa aplicada');
+    }
+  });
+}
+$('traNuevo').addEventListener('click',pintarTra);
+
+/* ======================= MÓDULO 4 · TyC ======================= */
+var TYC=[
+  {q:'Un cliente compra lentes de contacto por $60. ¿Suma 60 puntos?',s:false,x:'Los lentes de contacto y la audiología no acumulan puntos.',c:'4.2'},
+  {q:'El cliente compra solo una microfibra de $3.50. ¿Suma puntos y renueva la vigencia de sus puntos?',s:true,x:'Los accesorios suman (3 puntos) y cualquier compra nueva reinicia los 15 meses, aunque sea de menos de $5.',c:'4.2 y 6.2'},
+  {q:'¿El cliente necesita guardar el pase en su billetera digital para acumular puntos?',s:false,x:'Basta con estar afiliado y que la compra quede registrada. Guardar el pase solo sirve para verlo y usarlo.',c:'4.5'},
+  {q:'Una clienta quiere usar sus puntos en una compra de solo lentes de contacto. ¿Se puede?',s:false,x:'El descuento solo se redime en orden oftálmica completa (lentes y aro) y no aplica a lentes de contacto.',c:'7.2 y 7.3'},
+  {q:'El aro que lleva el cliente está en promoción. ¿Puede aplicar además su descuento SUMÁS a ese aro?',s:false,x:'El descuento aplica solo sobre artículos a precio regular y no se combina con promociones ni ofertas.',c:'7.4'},
+  {q:'La hija de una clienta llega sola con el pase de su mamá para usar los puntos. ¿Se puede?',s:false,x:'Los puntos son personales e intransferibles. El titular debe estar presente e identificado con su DUI.',c:'3.5'},
+  {q:'El titular está presente con su DUI y quiere usar sus puntos en los lentes de su hijo. ¿Se puede?',s:true,x:'Es la única excepción: el titular presente puede usar sus puntos para otra persona, y la compra se registra a nombre del titular.',c:'3.5'},
+  {q:'Un cliente cambió de teléfono. ¿Perdió sus puntos?',s:false,x:'Los puntos están ligados al DUI, no al teléfono. Servicio al Cliente le reenvía el pase.',c:'3.4'},
+  {q:'Un cliente no compra desde hace 16 meses. ¿Sus puntos siguen vigentes?',s:false,x:'Los puntos vencen a los 15 meses de la última compra y no se recuperan.',c:'6.1 y 6.3'},
+  {q:'¿El cliente puede cambiar sus puntos por dinero en efectivo?',s:false,x:'Los puntos y el descuento no son convertibles en efectivo; solo sirven para descuento en compras futuras.',c:'7.5'},
+  {q:'Un cliente con 410 puntos usa el 25 %. ¿Conserva puntos en su cuenta?',s:true,x:'El 25 % consume 300 puntos; los 110 restantes se quedan en su cuenta.',c:'7.1'},
+  {q:'Orden oftálmica de $800 a precio regular con 25 %. ¿El descuento es de $200?',s:false,x:'El tope es 25 % y máximo $150 por compra. El descuento es $150.',c:'5.2'},
+  {q:'Un cliente olvidó que ya estaba afiliado y quiere crear otra cuenta con su mismo DUI. ¿Se puede?',s:false,x:'Hay una sola cuenta por DUI; si lo intenta, el sistema lo dirige a su cuenta actual.',c:'3.3'},
+  {q:'¿Afiliarse al programa tiene algún costo para el cliente?',s:false,x:'La afiliación y la participación son totalmente gratuitas.',c:'1'},
+  {q:'Un joven de 17 años quiere afiliarse. ¿Se puede?',s:false,x:'Pueden participar personas mayores de edad (18 años cumplidos).',c:'1'},
+  {q:'Un cliente pagó $200 por una orden que tenía 20 % de promoción sobre $250. ¿Gana 250 puntos?',s:false,x:'Los puntos se calculan sobre lo efectivamente pagado, después de promociones: gana 200 puntos.',c:'4.1 y 4.3'},
+  {q:'Un cliente recibió un Pase tipo Cupón por correo. ¿Aceptarlo lo afilia automáticamente al programa de puntos?',s:false,x:'El cupón es independiente; la afiliación al programa de puntos es un paso aparte y opcional.',c:'9.4'},
+  {q:'¿El cupón se puede usar sobre un artículo que ya está en oferta?',s:false,x:'El cupón no aplica sobre artículos en oferta ni permite descuento sobre descuento.',c:'9.2'},
+  {q:'Un cliente devuelve una compra que le generó puntos. ¿Se revierten esos puntos?',s:true,x:'Sí. Y si en esa compra canjeó puntos, esos no se reintegran.',c:'13.2'},
+  {q:'¿Los puntos aparecen en el pase en el mismo momento de la compra?',s:true,x:'Los puntos son visibles en el pase en el mismo instante en que se realiza la compra.',c:'4.4'},
+  {q:'¿El cliente puede afiliarse escaneando un código QR de la sucursal?',s:true,x:'Hay dos vías: el enlace por WhatsApp que envía el asesor o SAC, o un código QR en el material POP.',c:'3.1'},
+  {q:'Durante la autoafiliación, ¿el cliente puede corregir su número de celular?',s:true,x:'Puede editar nombre, correo y celular. El DUI no se puede cambiar.',c:'3.2'},
+  {q:'Durante la autoafiliación, ¿el cliente puede cambiar el DUI con el que entró?',s:false,x:'El DUI identifica la cuenta y no se puede cambiar.',c:'3.2 y 3.3'},
+  {q:'¿El cliente puede darse de baja de los mensajes de promociones sin perder sus puntos?',s:true,x:'Puede darse de baja de los mensajes comerciales en cualquier momento sin perder su pase ni sus puntos.',c:'11.2'}
+];
+var RESUMEN=[
+  ['Quién y cuánto cuesta','Mayores de 18 años con compras en CV+. Gratis. Una cuenta por DUI, personal e intransferible.'],
+  ['Cómo se acumula','1 punto por $1 pagado (IVA incluido, después de promociones). Suman oftálmicos y accesorios; no suman lentes de contacto ni audiología.'],
+  ['Cómo se canjea','Presentando el pase al pagar. Orden oftálmica completa, precio regular, sin combinar con promociones. Tramos de 60 a 300 puntos, tope 25 % y $150.'],
+  ['Vigencia','15 meses desde la última compra. Cualquier compra, por pequeña que sea, reinicia el plazo. Vencidos, se pierden.'],
+  ['Casos especiales','El titular presente con DUI puede usar sus puntos para otra persona. Cambiar de teléfono no borra puntos. Devoluciones revierten los puntos ganados.'],
+  ['Pase tipo Cupón','Independiente del programa: reglas y vigencia propias (1 a 12 meses), no aplica sobre ofertas y no afilia automáticamente.']
+];
+$('tycRes').innerHTML=RESUMEN.map(function(r,i){return '<div class="card"><h3>'+esc(r[0])+'</h3><p style="font-size:13.5px">'+esc(r[1])+'</p></div>';}).join('');
+function pintarTyc(){
+  var x=pick(TYC);
+  $('tycCaso').innerHTML='<p class="q-txt">'+esc(x.q)+'</p><div class="fila"><button class="btn" type="button" data-r="1">Sí se puede</button><button class="btn" type="button" data-r="0">No se puede</button></div><div id="tycFb"></div>';
+  $('tycCaso').querySelectorAll('[data-r]').forEach(function(b){b.addEventListener('click',function(){
+    var ok=(b.dataset.r==='1')===x.s; $('tycCaso').querySelectorAll('[data-r]').forEach(function(z){z.disabled=true;});
+    $('tycFb').innerHTML='<div class="fb '+(ok?'ok':'mal')+'" style="margin-top:8px"><b>'+(x.s?'Sí se puede.':'No se puede.')+'</b><span>'+esc(x.x)+' <span class="chip ch-gr">Cláusula '+x.c+'</span></span></div>';
+  });});
+}
+$('tycNuevo').addEventListener('click',pintarTyc);
+
+/* ======================= MÓDULO 1 · AFILIACIÓN ======================= */
+var AF={paso:0,cli:null,tyc:false,promo:false};
+var PASOS=['Enlace','Bienvenida','Datos','Confirmación','Correo','Pase','Odoo'];
+var TIPS=[
+  '<h3>Comparte el enlace</h3><p>El cliente se afilia solo. Tú le compartes el enlace por <b>WhatsApp</b> o le muestras el <b>código QR</b> del material POP de la sucursal.</p><div class="fb info"><b>Dile:</b><span>“Es gratis, sin app y en un minuto. Desde hoy cada dólar que pagues te suma un punto.”</span></div><button class="btn prim" type="button" data-go="1" style="align-self:flex-start">El cliente abre el enlace</button>',
+  '<h3>Página 1 · Bienvenida</h3><p>El cliente ve los beneficios y escribe su <b>DUI</b>. Si ya está en nuestra base de datos, el sistema trae sus datos solo.</p><ul class="lst"><li>Formato: 8 números, guion y 1 número (00000000-0).</li><li>Una sola cuenta por DUI: si ya se afilió antes, lo lleva a su cuenta.</li></ul><p class="sub">Escribe el DUI de práctica en el teléfono y toca <b>Activar mi SUMÁS</b>.</p>',
+  '<h3>Página 2 · Datos del usuario</h3><p>El cliente confirma <b>nombre, correo y teléfono</b>; puede corregirlos. El <b>DUI no se puede cambiar</b>.</p><ul class="lst"><li>Revisa con él que el correo esté bien escrito: ahí le llega su pase.</li><li>La casilla de mayor de edad y Términos y Condiciones es obligatoria.</li><li>La casilla de promociones es opcional.</li></ul>',
+  '<h3>Página 3 · Confirmación</h3><p>El pase se genera al instante y le llega un correo. Si no lo encuentra, que revise Promociones o Spam.</p><button class="btn prim" type="button" data-go="4" style="align-self:flex-start">Abrir el correo del cliente</button>',
+  '<h3>El correo</h3><p>Le explica los tramos y trae el botón <b>Guardar en teléfono</b>, que agrega el pase a Apple Wallet o Google Wallet.</p><div class="fb info"><span>Guardar el pase no es requisito para acumular, pero sí para verlo y presentarlo al canjear.</span></div>',
+  '<h3>El pase en el teléfono</h3><p>Muestra su nombre y sus puntos. Arranca en 0: los puntos de la compra de hoy aparecen al instante, en cuanto se registre el pedido.</p><button class="btn prim" type="button" data-go="6" style="align-self:flex-start">Volver a Odoo</button>',
+  '<h3>Ahora sí: confirma el pedido en Odoo</h3><p>El orden importa: <b>primero</b> el cliente se afilia y <b>después</b> confirmas su pedido de venta en Odoo. Así la compra de hoy le suma puntos.</p><div class="fb ok"><b>Afiliación completa.</b><span>Ya puedes intentar la Misión de este módulo.</span></div><button class="btn" type="button" data-go="0" style="align-self:flex-start">Practicar otra vez</button>'
+];
+function telefono(){
+  var p=$('telPant'), c=AF.cli;
+  if(AF.paso===0){ p.innerHTML='<div class="s-load"><div><div class="ico" style="margin:0 auto 8px;background:#25d366">W</div><b>WhatsApp</b><p style="margin-top:8px">“Hola '+esc(c.nombre.split(' ')[0])+', activa aquí tu pase SUMÁS: enlace de afiliación”</p></div></div>'; }
+  else if(AF.paso===1){ p.innerHTML='<div class="s-logo">SUM<span>Á</span>S</div><div class="s-sub">SUMÁS · TU PROGRAMA DE LEALTAD</div><div class="s-card"><b>¿Qué ganas con SUMÁS?</b><div class="s-ben"><span class="ico" style="background:#ffc629">1</span><div><b>Acumula puntos en cada compra</b>1 punto por cada $1 que pagues en nuestras sucursales.</div></div><div class="s-ben"><span class="ico" style="background:#3fb3d9">%</span><div><b>Desbloquea descuentos</b>Hasta 25 % (máximo $150 por compra) en tu próxima compra.</div></div><div class="s-ben"><span class="ico" style="background:#373a36">0</span><div><b>Sin costo y sin app</b>Es gratis y guardas tu pase en Apple Wallet o Google Wallet.</div></div></div><div class="s-card"><b>Ingresa tu DUI</b><span style="font-size:11.5px;color:#6b6e6a">Para identificarte en nuestras sucursales.</span><input class="s-in" id="sDui" inputmode="numeric" placeholder="00000000-0" aria-label="DUI"><span style="font-size:11px;color:#6b6e6a">Ej: '+c.dui+' · Solo números y guion</span><button class="s-btn" id="sAct" disabled type="button">Activar mi SUMÁS</button></div>';
+    var inp=$('sDui'); inp.addEventListener('input',function(){$('sAct').disabled=!/^\d{8}-\d$/.test(inp.value.trim());});
+    $('sAct').addEventListener('click',function(){ cargando('Buscando tu DUI…',2); }); }
+  else if(AF.paso===2){ p.innerHTML='<div style="font-weight:700;font-size:17px;line-height:1.25">¡Ya casi tienes tu Pase SUMÁS, <span style="color:#1f6fb2">'+esc(c.nombre.toUpperCase())+'</span>!</div><span style="font-size:12px;color:#6b6e6a">Confirma que tus datos están correctos y recibe tu pase al instante.</span>'+
+    '<span class="s-lab">NOMBRE</span><input class="s-in" id="sNom" value="'+esc(c.nombre.toUpperCase())+'"><span class="s-lab">CORREO</span><input class="s-in" id="sCor" value="'+esc(c.correo)+'"><span class="s-lab">TELÉFONO</span><input class="s-in" id="sTel" value="'+esc(c.tel)+'"><span class="s-lab">DUI</span><input class="s-in" value="'+c.dui+'" disabled><span style="font-size:11px;color:#6b6e6a">Tu DUI identifica tu cuenta y no se puede cambiar.</span>'+
+    '<label class="s-chk"><input type="checkbox" id="sT"> <span>Soy mayor de edad y acepto los <u>Términos y Condiciones</u> y la <u>Política de Privacidad</u> de SUMÁS.</span></label><label class="s-chk"><input type="checkbox" id="sP"> <span>(Opcional) Acepto recibir promociones y novedades de SUMÁS por WhatsApp, llamada y correo.</span></label><button class="s-btn" id="sConf" disabled type="button">Confirmar y recibir mi Pase</button><button type="button" id="sVol" style="border:none;background:none;color:#1f6fb2;font:500 13px var(--f);cursor:pointer">← Volver</button>';
+    $('sT').addEventListener('change',function(){$('sConf').disabled=!this.checked;});
+    $('sVol').addEventListener('click',function(){irA(1);});
+    $('sConf').addEventListener('click',function(){ c.nombre=$('sNom').value.trim()||c.nombre; c.correo=$('sCor').value.trim()||c.correo; cargando('Preparando tu Pase SUMÁS…',3); }); }
+  else if(AF.paso===3){ p.innerHTML='<div class="s-logo">SUM<span>Á</span>S</div><div class="s-hero"><div class="ck">✓</div><b style="font-size:17px">¡YA ERES PARTE DE SUMÁS!</b><span style="font-size:11px;opacity:.85">'+esc(c.nombre.toUpperCase())+'</span></div><div class="s-card" style="background:#fff6dd;border-color:#f3dd94"><b>Tu Pase SUMÁS ya está listo</b></div><span>Te enviamos tu pase digital a <b>'+esc(c.correo)+'</b>. Ábrelo y toca «Guardar en teléfono»: listo, sin app.</span><div class="s-card"><span><b>1.</b> Abre el correo.</span><span><b>2.</b> Toca el botón «Guardar en teléfono».</span><span><b>3.</b> ¡Empieza a acumular 1 punto por cada $1!</span></div><div class="s-card" style="background:#f6f8f9"><b>¿No encuentras el correo?</b><span style="font-size:11.5px">Revisa Promociones o Spam. ¿Ayuda? Escríbenos por WhatsApp o visita una sucursal.</span></div>'; }
+  else if(AF.paso===4){ p.innerHTML='<b style="font-size:16px">¡SUMÁS ya está activo!</b><span style="font-size:11px;color:#6b6e6a">Ópticas CV+ · para '+esc(c.correo)+'</span><div class="s-card"><div class="s-logo" style="font-size:24px">SUM<span>Á</span>S</div><b>¡Tu Pase SUMÁS está activo!</b><span>Desde ahora, cada compra en nuestras sucursales suma 1 punto por cada $1 que pagas. Junta puntos y desbloquea descuentos de hasta 25 % (máximo $150 por compra).</span><b>Así se desbloquean tus descuentos</b>'+TRAMOS.map(function(t){return '<span>'+t[0]+' puntos · <b style="color:#3a8fc0">'+t[1]+' % de descuento</b></span>';}).join('')+'<span>Si juntas más puntos de los que necesitas, el resto se queda en tu cuenta.</span><button class="s-btn" type="button" id="sGuar">Guardar en teléfono</button></div>';
+    $('sGuar').addEventListener('click',function(){irA(5);}); }
+  else if(AF.paso===5){ p.innerHTML='<div style="text-align:center;font-weight:600">Billetera digital</div><div class="pase"><div style="padding:10px 14px;font-weight:700;color:#00abc8">Ópticas CV+</div><div class="ph">TU PRÓXIMA<br>MIRADA YA TIENE<br>BENEFICIOS</div><div class="pd"><div>NOMBRE<b>'+esc(c.nombre.toUpperCase())+'</b></div><div style="text-align:right">PUNTOS<b>0</b></div></div><div class="qr" aria-hidden="true"></div></div><span style="text-align:center;font-size:12px;color:#6b6e6a">Pase guardado. Lo presenta al pagar cuando quiera canjear.</span>'; }
+  else { p.innerHTML='<div class="odoo" style="border-radius:8px"><div class="o-nav" style="font-size:12px"><b>Ventas</b><span class="pr">Práctica</span></div><div class="o-body" style="font-size:12px"><b>Presupuesto de '+esc(c.nombre)+'</b><span>Aro + lentes · '+money(285)+'</span><button class="o-btn p" type="button" id="sConfOdoo">Confirmar</button><div id="sOk"></div></div></div>';
+    $('sConfOdoo').addEventListener('click',function(){this.disabled=true;$('sOk').innerHTML='<div class="fb ok" style="font-size:12px"><b>Pedido confirmado.</b><span>El pase del cliente ya muestra 285 puntos.</span></div>';}); }
+  $('ptN').innerHTML=PASOS.map(function(s,i){return '<span class="'+(i===AF.paso?'on':'')+'">'+(i+1)+'. '+s+'</span>';}).join('');
+  $('ptTxt').innerHTML=TIPS[AF.paso]; $('ptTxt').querySelectorAll('[data-go]').forEach(function(b){b.addEventListener('click',function(){irA(+b.dataset.go);});});
+}
+function cargando(txt,sig){ $('telPant').innerHTML='<div class="s-load"><div><div class="s-logo" style="font-size:22px">SUM<span>Á</span>S</div><p>'+txt+'</p></div></div>'; setTimeout(function(){irA(sig);},1100); }
+function irA(n){ if(n===0) nuevoCli(); AF.paso=n; telefono(); }
+function nuevoCli(){ var n=pick(NOMBRES); AF.cli={nombre:n,dui:('0'+rnd(1000000,9999999)).slice(-8)+'-'+rnd(0,9),correo:n.split(' ')[0].toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')+'.'+rnd(10,99)+'@correo.com',tel:'+503 7'+rnd(100,999)+'-'+rnd(1000,9999)}; }
+
+/* ======================= generadores de misiones ======================= */
+var GEN={
+  afi:function(){
+    var B=[
+      {q:'¿Cuál es el orden correcto?',ops:['El cliente se afilia y después confirmas su pedido en Odoo','Confirmas el pedido en Odoo y después el cliente se afilia','Da igual el orden','El cliente se afilia al día siguiente de su compra'],c:0,x:'Primero la afiliación y después el pedido, para que la compra de hoy le sume puntos.'},
+      {q:'¿Cuáles son las 3 páginas de la afiliación?',ops:['Bienvenida, Datos del usuario y Confirmación','Registro, Pago y Confirmación','DUI, Correo y Contraseña','Bienvenida, Encuesta y Pase'],c:0,x:'Bienvenida (DUI), Datos del usuario (confirmar datos y aceptar términos) y Confirmación.'},
+      {q:'¿Qué dato no puede cambiar el cliente durante la afiliación?',ops:['El DUI','El correo','El número de celular','El nombre'],c:0,x:'El DUI identifica la cuenta y no se puede cambiar; nombre, correo y celular sí se pueden editar.'},
+      {q:'¿Cuál casilla es obligatoria para confirmar?',ops:['Mayor de edad y aceptación de Términos y Condiciones','Recibir promociones por WhatsApp','Las dos','Ninguna'],c:0,x:'La de promociones es opcional; la de mayoría de edad y términos es obligatoria.'},
+      {q:'¿Por qué vías se puede afiliar el cliente?',ops:['Enlace por WhatsApp o código QR del material POP','Solo desde la app de CV+','Solo en caja con el asesor llenando el formulario','Por llamada telefónica'],c:0,x:'El cliente se autoafilia por el enlace que le comparte el asesor o SAC por WhatsApp, o por el QR del material POP.'},
+      {q:'El cliente no encuentra el correo con su pase. ¿Qué le dices?',ops:['Que revise Promociones o Spam, y si no, que escriba por WhatsApp o visite una sucursal','Que se vuelva a afiliar con otro DUI','Que ya perdió el pase','Que espere 15 días'],c:0,x:'Es lo que indica la pantalla de confirmación. Nunca se crea otra cuenta: hay una sola por DUI.'},
+      {q:'¿El cliente debe guardar el pase en su teléfono para acumular los puntos de hoy?',ops:['No: basta con estar afiliado y que la compra quede registrada','Sí, si no lo guarda no acumula','Solo si tiene iPhone','Solo si su compra es mayor de $100'],c:0,x:'Guardar el pase sirve para verlo y presentarlo al canjear, pero no es requisito para acumular.'},
+      {q:'¿Con cuántos puntos arranca el pase recién creado?',ops:['0, y la compra de hoy los suma al confirmar el pedido','60, de regalo de bienvenida','100','Depende de su historial de compras anteriores'],c:0,x:'El pase arranca en 0 y los puntos se ven al instante cuando se registra la compra.'},
+      {q:'Un cliente ya afiliado intenta afiliarse otra vez con su DUI. ¿Qué pasa?',ops:['El sistema lo dirige a su cuenta actual','Se crea una segunda cuenta','Se borran sus puntos','Se le cobra una multa'],c:0,x:'Solo existe una cuenta por DUI.'}
+    ];
+    return shuffle(B).slice(0,6);
+  },
+  eti:function(){
+    var qs=[];
+    for(var i=0;i<5;i++){
+      var c=genCliente(), cor=c.et1+' · '+c.et2, otros={};
+      var t2=c.cot?['Directo','Comparador']:['Primerizo','Leal'], tl=c.cot?['Decidiendo','Postergando']:['Calentando','Caliente','Tibio','Frío'];
+      var cand=[c.metal+' '+c.t+' · '+t2.filter(function(x){return x!==c.et2;})[0], (c.metal==='Oro'?'Plata':'Oro')+' '+c.t+' · '+c.et2, c.metal+' '+pick(tl.filter(function(x){return x!==c.t;}))+' · '+c.et2, (c.metal==='Cobre'?'Plata':'Cobre')+' '+c.t+' · '+c.et2];
+      var ops=[cor]; cand.forEach(function(x){if(ops.indexOf(x)<0&&ops.length<4)ops.push(x);});
+      qs.push({ctx:tablaHist(c),q:'¿Qué etiquetas le calcula Odoo a este cliente?',ops:ops,c:0,x:explicar(c)});
+    }
+    shuffle(VALIDAS).slice(0,4).forEach(function(x){
+      var ds=shuffle(VALIDAS.filter(function(y){return y!==x;})).slice(0,3).map(function(y){return esc(y.d);});
+      qs.push({ctx:tarjetaOdoo(x.e1,x.e2,pick(NOMBRES)),q:'¿Quién es este cliente?',ops:[esc(x.d)].concat(ds),c:0,x:esc(x.d+' '+x.a)});
+    });
+    qs.push({q:'¿Cuál de estas combinaciones de etiquetas no puede existir?',ops:['Oro Frío · Comparador','Oro Frío · Leal','Plata Tibio · Leal','Oro Postergando · Comparador'],c:0,x:'Frío es una temperatura de clientes y Comparador es un comportamiento de cotizantes: no se mezclan.'});
+    return shuffle(qs);
+  },
+  tra:function(){
+    var qs=[];
+    shuffle([59,75,115,119,120,179,180,240,299,300,410]).slice(0,3).forEach(function(p){
+      var t=tramoMax(p), cor=t?t[1]+' %':'Ninguno todavía';
+      var ops=[cor].concat(shuffle(['Ninguno todavía','5 %','10 %','15 %','20 %','25 %'].filter(function(x){return x!==cor;})).slice(0,3));
+      qs.push({q:'Un cliente tiene <b>'+p+' puntos</b>. ¿Qué descuento máximo tiene desbloqueado?',ops:ops,c:0,x:t?'Los tramos son fijos: '+p+' puntos alcanzan el tramo de '+t[0]+' puntos = '+t[1]+' %.':'El primer tramo es 60 puntos (5 %).'});
+    });
+    [[410,300],[260,240],[130,120],[75,60]].sort(function(){return Math.random()-.5;}).slice(0,2).forEach(function(a){
+      var t=tramoMax(a[0]), r=a[0]-t[0];
+      qs.push({q:'Un cliente con <b>'+a[0]+' puntos</b> canjea su tramo máximo ('+t[1]+' %). ¿Cuántos puntos le quedan?',ops:[String(r),'0',String(a[0]-t[1]),String(r+60)],c:0,x:'Se consumen los '+t[0]+' puntos del tramo: '+a[0]+' − '+t[0]+' = '+r+'. El resto se queda en su cuenta.'});
+    });
+    for(var k=0;k<3;k++){
+      var p=genPres({pts:pick([120,180,240,300,350])}); while(!p.completa) p=genPres({pts:p.pts});
+      var t=tramoMax(p.pts), c=calcPres(p,t);
+      var ops=[money(c.desc),money(c.bruto===c.desc?r2(c.desc+rnd(5,25)):c.bruto),money(r2((c.baseOf+c.acc+c.lc)*t[1]/100+(c.acc+c.lc?0:7))),money(r2(c.baseOf*t[1]/100/2))];
+      ops=ops.filter(function(v,i){return ops.indexOf(v)===i;}); while(ops.length<4) ops.push(money(r2(c.desc+ops.length*11)));
+      qs.push({ctx:resumenPres(p),q:'Con <b>'+t[1]+' %</b>, ¿cuánto descuento recibe?',ops:ops,c:0,x:'Base de descuento (solo lentes, aros y antirreflejos): '+money(c.baseOf)+'. '+t[1]+' % = '+money(c.bruto)+(c.tope?'; supera el tope, así que el descuento es <b>$150</b>.':'.')+(c.acc||c.lc?' Accesorios y lentes de contacto no entran en la base.':'')});
+    }
+    for(var j=0;j<2;j++){
+      var p2=genPres({pts:30}); var c2=calcPres(p2,null);
+      var ops2=[String(c2.ganan),String(Math.floor(c2.baseOf+c2.acc+c2.lc)),String(Math.floor(c2.baseOf)),String(c2.ganan+12)];
+      ops2=ops2.filter(function(v,i){return ops2.indexOf(v)===i;}); while(ops2.length<4) ops2.push(String(c2.ganan+ops2.length*7));
+      qs.push({ctx:resumenPres(p2),q:'El cliente paga este pedido sin canjear. ¿Cuántos puntos gana?',ops:ops2,c:0,x:'Suman lentes, aros, antirreflejos ('+money(c2.baseOf)+')'+(c2.acc?' y accesorios ('+money(c2.acc)+')':'')+(c2.lc?'; los lentes de contacto ('+money(c2.lc)+') no suman':'')+'. 1 punto por cada $1 completo: <b>'+c2.ganan+'</b>.'});
+    }
+    return shuffle(qs);
+  },
+  tyc:function(){
+    return shuffle(TYC).slice(0,10).map(function(x){return {q:esc(x.q),ops:['Sí se puede','No se puede'],c:x.s?0:1,x:esc(x.x)+' <span class="chip ch-gr">Cláusula '+x.c+'</span>'};}).map(function(q){ if(q.c===1){q.ops=[q.ops[1],q.ops[0]];q.c=0;} return q; });
+  }
+};
+function resumenPres(p){
+  return '<div class="tabla-w"><table class="o-tabla"><thead><tr><th>Producto</th><th class="r">Cant.</th><th class="r">Subtotal</th></tr></thead><tbody>'+p.lineas.map(function(l){return '<tr><td>'+esc(l.n)+' <span class="excl">· '+CAT[l.t]+'</span></td><td class="r">'+l.q+'</td><td class="r">'+money(l.q*l.p)+'</td></tr>';}).join('')+'</tbody></table></div>';
+}
+
+/* ======================= arranque ======================= */
+pintarTabs(); pintarInicio(); pintarEti(); pintarInt(); pintarTra(); pintarTyc(); irA(0);
+var h=(location.hash||'').slice(1); if(['afi','eti','tra','tyc'].indexOf(h)>=0) ver('v-'+h);
+window.addEventListener('hashchange',function(){var h=(location.hash||'').slice(1); var v=h?'v-'+h:'v-inicio'; if($(v)&&v!==vistaAct) ver(v);});
+</script>
+
+</body>
+</html>
