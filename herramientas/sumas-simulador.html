@@ -465,25 +465,27 @@ var INTERP=[
   {e1:'Oro Frío',e2:'Leal',d:'Compró varias veces con buen ticket, pero hace más de 3 años que no vuelve.',a:'Es un cliente valioso que se está perdiendo: dale prioridad.'},
   {e1:'Plata Tibio',e2:'Leal',d:'Compró varias veces con ticket medio y su última compra fue hace 2 a 3 años.',a:'Ya pasó su tiempo habitual: necesita una razón concreta para volver.'},
   {e1:'Oro Frío',e2:'Comparador',d:'No existe: Frío es para clientes y Comparador para cotizantes.',a:''},
-  {e1:'Oro Postergando',e2:'Comparador',d:'Nunca ha comprado; tiene 2 o más presupuestos con promedio de $250 o más y el último fue hace más de un mes.',a:'Retoma la cotización con argumentos de valor.'},
+  {e1:'Oro Postergando',e2:'Comparador',d:'Nunca ha comprado; tiene 2 o más presupuestos con promedio de $250 o más y el último fue hace un mes o más.',a:'Retoma la cotización con argumentos de valor.'},
   {e1:'Plata Caliente',e2:'Primerizo',d:'Una sola compra de valor medio hace 1 a 2 años.',a:'Está en su momento de recompra: recuérdale su revisión e invítalo a SUMÁS.'},
   {e1:'Cobre Calentando',e2:'Primerizo',d:'Una sola compra de menos de $150 hace menos de un año.',a:'Invítalo a SUMÁS y háblale de beneficios concretos: puntos y descuento.'},
   {e1:'Plata Decidiendo',e2:'Directo',d:'Cotizó una sola vez, entre $150 y $249.99, hace menos de un mes.',a:'Probablemente sabe lo que quiere: dale seguimiento pronto y facilítale el cierre.'},
   {e1:'Oro Calentando',e2:'Leal',d:'Varias compras de $250 o más; la última hace menos de un año.',a:'Reconócelo y agradécele; asegúrate de que guarde su pase.'},
   {e1:'Cobre Frío',e2:'Primerizo',d:'Una sola compra de menos de $150 hace 3 años o más.',a:'El más difícil de recuperar: contacto amable, sin presión y con un beneficio claro.'},
   {e1:'Oro Caliente',e2:'Primerizo',d:'Una sola compra de $250 o más hace 1 a 2 años.',a:'Alto valor en su ventana de recompra: lograr su segunda compra es la prioridad.'},
-  {e1:'Plata Postergando',e2:'Comparador',d:'Nunca ha comprado; 2 o más presupuestos de valor medio y el último hace más de un mes.',a:'Está comparando: explica con claridad las diferencias y el valor de cada opción.'}
+  {e1:'Plata Postergando',e2:'Comparador',d:'Nunca ha comprado; 2 o más presupuestos de valor medio y el último hace un mes o más.',a:'Está comparando: explica con claridad las diferencias y el valor de cada opción.'}
 ];
 var VALIDAS=INTERP.filter(function(x){return x.a;});
 function tarjetaOdoo(e1,e2,nom){
-  return '<div class="odoo" style="max-width:320px"><div class="o-body" style="gap:6px"><span class="bdg '+pick(['vig','pv','ven'])+'" style="align-self:flex-start">'+pick(['Vigente','Por vencer','Vencido'])+'</span><b>'+esc(nom)+'</b><span class="num">'+money(rnd(120,520))+'.00</span><div><span class="bdg perfil">'+e1+'</span></div><div><span class="bdg comp">'+e2+'</span></div></div></div>';
+  // Semáforo de vigencia: el color y la palabra siempre van juntos (verde = Vigente, amarillo = Por vencer, rojo = Vencido)
+  var sem=pick([['vig','Vigente'],['pv','Por vencer'],['ven','Vencido']]);
+  return '<div class="odoo" style="max-width:320px"><div class="o-body" style="gap:6px"><span class="bdg '+sem[0]+'" style="align-self:flex-start">'+sem[1]+'</span><b>'+esc(nom)+'</b><span class="num">'+money(rnd(120,520))+'</span><div><span class="bdg perfil">'+e1+'</span></div><div><span class="bdg comp">'+e2+'</span></div></div></div>';
 }
 function pintarInt(){
   var x=pick(VALIDAS), ops=shuffle([x].concat(shuffle(VALIDAS.filter(function(y){return y!==x;})).slice(0,3)));
   $('intCaso').innerHTML=tarjetaOdoo(x.e1,x.e2,pick(NOMBRES))+'<div class="ops" style="margin-top:12px">'+ops.map(function(o){return '<button type="button" class="op" data-ok="'+(o===x)+'">'+esc(o.d)+'</button>';}).join('')+'</div><div id="intFb" style="margin-top:10px"></div>';
   $('intCaso').querySelectorAll('.op').forEach(function(b){b.addEventListener('click',function(){
     var ok=b.dataset.ok==='true'; prac('eti',ok); $('intCaso').querySelectorAll('.op').forEach(function(z){z.disabled=true;if(z.dataset.ok==='true')z.classList.add('bien');}); if(!ok)b.classList.add('malo');
-    $('intFb').innerHTML='<div class="fb '+(ok?'ok':'mal')+'"><b>'+x.e1+' · '+x.e2+'</b><span>'+esc(x.d)+' '+esc(x.a)+'</span></div>';
+    $('intFb').innerHTML='<div class="fb '+(ok?'ok':'mal')+'"><b>'+x.e1+' · '+x.e2+'</b><span>'+esc(x.d)+' '+esc(x.a)+'</span><span class="excl">El semáforo de arriba no son los puntos: mide la antigüedad de la oportunidad (Vigente 0 a 10 días, Por vencer 11 a 30, Vencido 31 o más). Atiende primero lo Vencido.</span></div>';
   });});
 }
 $('intNuevo').addEventListener('click',pintarInt);
@@ -495,11 +497,11 @@ var CAT={aro:'Aro oftálmico',len:'Lentes oftálmicos',ar:'Antirreflejo',acc:'Ac
 function genPres(opts){
   opts=opts||{};
   var lineas=[], comp=opts.incompleta?false:Math.random()<.85;
-  var aro=rnd(6,38)*10-0.01+0.01, lu=rnd(4,30)*10;
+  var aro=rnd(3,19)*20, lu=rnd(2,15)*20;
   if(comp||Math.random()<.5) lineas.push({t:'aro',n:pick(['Aro OVVO 2741','Aro acetato Milano','Aro titanio Kyoto','Aro metal Lisboa']),q:1,p:aro});
   if(comp||!lineas.length) lineas.push({t:'len',n:pick(['Lente monofocal 1.60','Lente progresivo Akkurat ONE','Lente monofocal 1.56','Lente progresivo Luminex']),q:2,p:lu});
-  if(Math.random()<.35) lineas.push({t:'ar',n:'Antirreflejo azul',q:1,p:rnd(3,8)*10});
-  if(Math.random()<.45) lineas.push({t:'acc',n:pick(['Microfibra','Estuche rígido','Cordón para lentes']),q:rnd(1,2),p:pick([1.75,4.5,8,12])});
+  if(Math.random()<.35) lineas.push({t:'ar',n:'Antirreflejo azul',q:1,p:pick([40,60,80])});
+  if(Math.random()<.45) lineas.push({t:'acc',n:pick(['Microfibra','Estuche rígido','Cordón para lentes']),q:rnd(1,2),p:pick([2,4,8,12])});
   if(Math.random()<.3) lineas.push({t:'lc',n:'Lentes de contacto mensuales',q:1,p:pick([35,48,62,90])});
   var tieneAro=lineas.some(function(l){return l.t==='aro';}), tieneLen=lineas.some(function(l){return l.t==='len';});
   return {nombre:pick(NOMBRES),pts:opts.pts!=null?opts.pts:pick([35,59,60,75,115,119,120,150,179,180,215,240,260,299,300,345,410,520]),lineas:lineas,completa:tieneAro&&tieneLen};
@@ -516,7 +518,7 @@ function pintarTra(){
   traP=genPres(); var t=tramoMax(traP.pts);
   var filas=traP.lineas.map(function(l){var noOf=l.t==='acc'||l.t==='lc';return '<tr><td>'+esc(l.n)+'<br><span class="excl">'+CAT[l.t]+'</span></td><td class="r">'+l.q+'</td><td class="r">'+money(l.p)+'</td><td class="r">'+money(l.q*l.p)+'</td></tr>';}).join('');
   $('traCaso').innerHTML='<div class="odoo"><div class="o-nav"><b>Ventas</b><span>Presupuestos / Nuevo</span><span class="pr">Práctica</span></div><div class="o-body">'+
-   '<div class="o-grid"><div class="o-f"><span class="l">Cliente</span><span>'+esc(traP.nombre)+'</span></div><div class="o-f"><span class="l">Lista de precios</span><span>Tarifa Pública (USD)</span></div><div class="o-f"><span class="l">Puntos SUMÁS</span><span class="num"><b>'+traP.pts+'</b> puntos</span></div><div class="o-f"><span class="l">Promociones</span><span>Ninguna (precio regular)</span></div></div>'+
+   '<div class="o-grid"><div class="o-f"><span class="l">Cliente</span><span>'+esc(traP.nombre)+'</span></div><div class="o-f"><span class="l">Lista de precios</span><span>Tarifa Pública (USD)</span></div><div class="o-f"><span class="l">Puntos SUMÁS</span><span class="num"><b>'+traP.pts+'</b> puntos</span></div><div class="o-f"><span class="l">Promociones</span><span>Ninguna (precio regular)</span></div><div class="o-f"><span class="l">Fecha de entrega</span><span>'+fecha(haceDias(-7))+'</span></div><div class="o-f"><span class="l">Condiciones de pago</span><span>Pago inmediato</span></div></div>'+
    '<div class="tabla-w"><table class="o-tabla"><thead><tr><th>Producto</th><th class="r">Cant.</th><th class="r">Precio unit.</th><th class="r">Subtotal</th></tr></thead><tbody id="traLin">'+filas+'</tbody></table></div>'+
    '<div class="fila" style="justify-content:space-between"><div class="o-btns"><button class="o-btn p" type="button" id="traRec">Recompensa</button></div><div class="o-tot" id="traTot"><span>Total</span><b class="num">'+money(calcPres(traP,null).total)+'</b></div></div></div></div>'+
    '<div class="card" style="margin-top:12px;box-shadow:none"><h3>Antes de aplicar, calcula</h3><div class="dos">'+
@@ -534,7 +536,7 @@ function pintarTra(){
     var why=!traP.completa?'La orden <b>no es oftálmica completa</b> (necesita lentes y aro), así que no puede canjear aunque tenga '+traP.pts+' puntos.':
       (!t?'Con '+traP.pts+' puntos todavía no desbloquea ningún tramo: el primero es 60.':
       'Con '+traP.pts+' puntos el tramo máximo es <b>'+t[1]+' %</b> ('+t[0]+' puntos). Base de descuento (lentes, aros y antirreflejos): '+money(c.baseOf)+'. '+t[1]+' % = '+money(c.bruto)+(c.tope?', pero el tope es <b>$150</b>':'')+'. Le quedan '+c.restan+' puntos.');
-    $('traFb').innerHTML='<div class="fb '+(ok1&&ok2&&ok3?'ok':'mal')+'" style="margin-top:10px"><b>'+(ok1&&ok2&&ok3?'Todo correcto.':'Revisa: '+[ok1?'':'tramo',ok2?'':'descuento',ok3?'':'puntos ganados'].filter(Boolean).join(', ')+'.')+'</b><span>1. '+why+'</span><span>2. Descuento: <b>'+money(c.desc)+'</b>.</span><span>3. Puntos: pagará '+money(c.baseOf-c.desc)+' en artículos oftálmicos'+(c.acc?' + '+money(c.acc)+' en accesorios':'')+(c.lc?'; los lentes de contacto ('+money(c.lc)+') no suman':'')+' → <b>'+c.ganan+' puntos</b> (1 por cada $1 completo).</span></div>';
+    $('traFb').innerHTML='<div class="fb '+(ok1&&ok2&&ok3?'ok':'mal')+'" style="margin-top:10px"><b>'+(ok1&&ok2&&ok3?'Todo correcto.':'Revisa: '+[ok1?'':'tramo',ok2?'':'descuento',ok3?'':'puntos ganados'].filter(Boolean).join(', ')+'.')+'</b><span>1. '+why+'</span><span>2. Descuento: <b>'+money(c.desc)+'</b>.</span><span>3. Puntos: pagará '+money(c.baseOf-c.desc)+' en artículos oftálmicos'+(c.acc?' + '+money(c.acc)+' en accesorios':'')+(c.lc?'; los lentes de contacto ('+money(c.lc)+') no suman':'')+' → <b>'+c.ganan+' puntos</b> (1 punto por cada $1 pagado).</span></div>';
   });
 }
 function abrirRecompensa(p){
@@ -561,13 +563,13 @@ $('traNuevo').addEventListener('click',pintarTra);
 /* ======================= MÓDULO 4 · TyC ======================= */
 var TYC=[
   {q:'Un cliente compra lentes de contacto por $60. ¿Suma 60 puntos?',s:false,x:'Los lentes de contacto y la audiología no acumulan puntos.',c:'4.2'},
-  {q:'El cliente compra solo una microfibra de $3.50. ¿Suma puntos y renueva la vigencia de sus puntos?',s:true,x:'Los accesorios suman (3 puntos) y cualquier compra nueva reinicia los 15 meses, aunque sea de menos de $5.',c:'4.2 y 6.2'},
+  {q:'El cliente compra solo una microfibra de $4.00. ¿Suma puntos y renueva la vigencia de sus puntos?',s:true,x:'Los accesorios suman (4 puntos) y cualquier compra nueva reinicia los 15 meses, aunque sea de menos de $5.',c:'4.2 y 6.2'},
   {q:'¿El cliente necesita guardar el pase en su billetera digital para acumular puntos?',s:false,x:'Basta con estar afiliado y que la compra quede registrada. Guardar el pase solo sirve para verlo y usarlo.',c:'4.5'},
   {q:'Una clienta quiere usar sus puntos en una compra de solo lentes de contacto. ¿Se puede?',s:false,x:'El descuento solo se redime en orden oftálmica completa (lentes y aro) y no aplica a lentes de contacto.',c:'7.2 y 7.3'},
   {q:'El aro que lleva el cliente está en promoción. ¿Puede aplicar además su descuento SUMÁS a ese aro?',s:false,x:'El descuento aplica solo sobre artículos a precio regular y no se combina con promociones ni ofertas.',c:'7.4'},
   {q:'La hija de una clienta llega sola con el pase de su mamá para usar los puntos. ¿Se puede?',s:false,x:'Los puntos son personales e intransferibles. El titular debe estar presente e identificado con su DUI.',c:'3.5'},
   {q:'El titular está presente con su DUI y quiere usar sus puntos en los lentes de su hijo. ¿Se puede?',s:true,x:'Es la única excepción: el titular presente puede usar sus puntos para otra persona, y la compra se registra a nombre del titular.',c:'3.5'},
-  {q:'Un cliente cambió de teléfono. ¿Perdió sus puntos?',s:false,x:'Los puntos están ligados al DUI, no al teléfono. Servicio al Cliente le reenvía el pase.',c:'3.4'},
+  {q:'Un cliente cambió de teléfono. ¿Perdió sus puntos?',s:false,x:'Los puntos están ligados al DUI, no al teléfono. Llamando o escribiendo a los canales oficiales de CV+ se le reenvía el pase para descargarlo de nuevo.',c:'3.4'},
   {q:'Un cliente no compra desde hace 16 meses. ¿Sus puntos siguen vigentes?',s:false,x:'Los puntos vencen a los 15 meses de la última compra y no se recuperan.',c:'6.1 y 6.3'},
   {q:'¿El cliente puede cambiar sus puntos por dinero en efectivo?',s:false,x:'Los puntos y el descuento no son convertibles en efectivo; solo sirven para descuento en compras futuras.',c:'7.5'},
   {q:'Un cliente con 410 puntos usa el 25 %. ¿Conserva puntos en su cuenta?',s:true,x:'El 25 % consume 300 puntos; los 110 restantes se quedan en su cuenta.',c:'7.1'},
@@ -583,14 +585,20 @@ var TYC=[
   {q:'¿El cliente puede afiliarse escaneando un código QR de la sucursal?',s:true,x:'Hay dos vías: el enlace por WhatsApp que envía el asesor o SAC, o un código QR en el material POP.',c:'3.1'},
   {q:'Durante la autoafiliación, ¿el cliente puede corregir su número de celular?',s:true,x:'Puede editar nombre, correo y celular. El DUI no se puede cambiar.',c:'3.2'},
   {q:'Durante la autoafiliación, ¿el cliente puede cambiar el DUI con el que entró?',s:false,x:'El DUI identifica la cuenta y no se puede cambiar.',c:'3.2 y 3.3'},
+  {q:'Un cliente canjea su descuento en una orden con aro, lentes y un estuche. ¿El descuento también se aplica al estuche?',s:false,x:'El descuento cubre solo lentes, aros y antirreflejos a precio regular; no aplica a accesorios, lentes de contacto ni audiología.',c:'7.3'},
+  {q:'Después del descuento, ¿el cliente puede pagar el resto con tarjeta?',s:true,x:'El monto no cubierto por el descuento se paga con efectivo, tarjeta o transferencia.',c:'7.4'},
+  {q:'Un cliente devuelve una compra cuyos puntos ya usó. ¿Su saldo puede quedar en negativo?',s:true,x:'Sí: los puntos se revierten y el saldo puede quedar en negativo hasta compensarse con compras futuras.',c:'13.2'},
+  {q:'Un cliente hace compras y devoluciones repetidas para juntar puntos. ¿Está permitido?',s:false,x:'Es uso indebido: CV+ puede suspender la cuenta, anular los puntos o cancelar la membresía.',c:'10.1 y 10.2'},
+  {q:'Si CV+ termina el programa, ¿el cliente puede usar sus puntos vigentes después del aviso?',s:true,x:'Hay un aviso previo de 30 días y una ventana de gracia de 3 meses desde el aviso para usar los puntos vigentes.',c:'14'},
+  {q:'Un cliente cambió de correo y ya no puede abrir su pase. ¿Debe afiliarse de nuevo?',s:false,x:'No: llama o escribe a los canales oficiales y se le reenvía el pase. Su cuenta y sus puntos siguen ligados a su DUI.',c:'3.4'},
   {q:'¿El cliente puede darse de baja de los mensajes de promociones sin perder sus puntos?',s:true,x:'Puede darse de baja de los mensajes comerciales en cualquier momento sin perder su pase ni sus puntos.',c:'11.2'}
 ];
 var RESUMEN=[
-  ['Quién y cuánto cuesta','Mayores de 18 años con compras en CV+. Gratis. Una cuenta por DUI, personal e intransferible.'],
+  ['Quién y cuánto cuesta','Salvadoreños mayores de 18 años que hayan comprado o compren en CV+. Gratis. Una cuenta por DUI, personal e intransferible. Aplica solo en sucursales físicas de CV+ en El Salvador.'],
   ['Cómo se acumula','1 punto por $1 pagado (IVA incluido, después de promociones). Suman oftálmicos y accesorios; no suman lentes de contacto ni audiología.'],
   ['Cómo se canjea','Presentando el pase al pagar. Orden oftálmica completa, precio regular, sin combinar con promociones. Tramos de 60 a 300 puntos, tope 25 % y $150.'],
   ['Vigencia','15 meses desde la última compra. Cualquier compra, por pequeña que sea, reinicia el plazo. Vencidos, se pierden.'],
-  ['Casos especiales','El titular presente con DUI puede usar sus puntos para otra persona. Cambiar de teléfono no borra puntos. Devoluciones revierten los puntos ganados.'],
+  ['Casos especiales','El titular presente con DUI puede usar sus puntos para otra persona. Cambiar de teléfono no borra puntos. Devoluciones revierten los puntos ganados (el saldo puede quedar en negativo) y los puntos canjeados en esa compra no se reintegran.'],
   ['Pase tipo Cupón','Independiente del programa: reglas y vigencia propias (1 a 12 meses), no aplica sobre ofertas y no afilia automáticamente.']
 ];
 $('tycRes').innerHTML=RESUMEN.map(function(r,i){return '<div class="card"><h3>'+esc(r[0])+'</h3><p style="font-size:13.5px">'+esc(r[1])+'</p></div>';}).join('');
@@ -627,7 +635,7 @@ function telefono(){
     '<label class="s-chk"><input type="checkbox" id="sT"> <span>Soy mayor de edad y acepto los <u>Términos y Condiciones</u> y la <u>Política de Privacidad</u> de SUMÁS.</span></label><label class="s-chk"><input type="checkbox" id="sP"> <span>(Opcional) Acepto recibir promociones y novedades de SUMÁS por WhatsApp, llamada y correo.</span></label><button class="s-btn" id="sConf" disabled type="button">Confirmar y recibir mi Pase</button><button type="button" id="sVol" style="border:none;background:none;color:#1f6fb2;font:500 13px var(--f);cursor:pointer">← Volver</button>';
     $('sT').addEventListener('change',function(){$('sConf').disabled=!this.checked;});
     $('sVol').addEventListener('click',function(){irA(1);});
-    $('sConf').addEventListener('click',function(){ c.nombre=$('sNom').value.trim()||c.nombre; c.correo=$('sCor').value.trim()||c.correo; cargando('Preparando tu Pase SUMÁS…',3); }); }
+    $('sConf').addEventListener('click',function(){ c.nombre=$('sNom').value.trim()||c.nombre; c.correo=$('sCor').value.trim()||c.correo; c.tel=$('sTel').value.trim()||c.tel; cargando('Preparando tu Pase SUMÁS…',3); }); }
   else if(AF.paso===3){ p.innerHTML='<div class="s-logo">SUM<span>Á</span>S</div><div class="s-hero"><div class="ck">✓</div><b style="font-size:17px">¡YA ERES PARTE DE SUMÁS!</b><span style="font-size:11px;opacity:.85">'+esc(c.nombre.toUpperCase())+'</span></div><div class="s-card" style="background:#fff6dd;border-color:#f3dd94"><b>Tu Pase SUMÁS ya está listo</b></div><span>Te enviamos tu pase digital a <b>'+esc(c.correo)+'</b>. Ábrelo y toca «Guardar en teléfono»: listo, sin app.</span><div class="s-card"><span><b>1.</b> Abre el correo.</span><span><b>2.</b> Toca el botón «Guardar en teléfono».</span><span><b>3.</b> ¡Empieza a acumular 1 punto por cada $1!</span></div><div class="s-card" style="background:#f6f8f9"><b>¿No encuentras el correo?</b><span style="font-size:11.5px">Revisa Promociones o Spam. ¿Ayuda? Escríbenos por WhatsApp o visita una sucursal.</span></div>'; }
   else if(AF.paso===4){ p.innerHTML='<b style="font-size:16px">¡SUMÁS ya está activo!</b><span style="font-size:11px;color:#6b6e6a">Ópticas CV+ · para '+esc(c.correo)+'</span><div class="s-card"><div class="s-logo" style="font-size:24px">SUM<span>Á</span>S</div><b>¡Tu Pase SUMÁS está activo!</b><span>Desde ahora, cada compra en nuestras sucursales suma 1 punto por cada $1 que pagas. Junta puntos y desbloquea descuentos de hasta 25 % (máximo $150 por compra).</span><b>Así se desbloquean tus descuentos</b>'+TRAMOS.map(function(t){return '<span>'+t[0]+' puntos · <b style="color:#3a8fc0">'+t[1]+' % de descuento</b></span>';}).join('')+'<span>Si juntas más puntos de los que necesitas, el resto se queda en tu cuenta.</span><button class="s-btn" type="button" id="sGuar">Guardar en teléfono</button></div>';
     $('sGuar').addEventListener('click',function(){irA(5);}); }
@@ -675,6 +683,7 @@ var GEN={
   },
   tra:function(){
     var qs=[];
+    qs.push({q:'Das clic en <b>Recompensa</b> y Odoo muestra «Campos no válidos». ¿Qué haces?',ops:['Completo Fecha de entrega y Condiciones de pago, y vuelvo a dar clic en Recompensa','Aplico el descuento a mano en la columna Desc. %','Confirmo el pedido sin descuento','Cambio la lista de precios'],c:0,x:'Odoo no deja aplicar la recompensa si faltan Fecha de entrega y Condiciones de pago. Nunca se aplica el descuento a mano.'});
     shuffle([59,75,115,119,120,179,180,240,299,300,410]).slice(0,3).forEach(function(p){
       var t=tramoMax(p), cor=t?t[1]+' %':'Ninguno todavía';
       var ops=[cor].concat(shuffle(['Ninguno todavía','5 %','10 %','15 %','20 %','25 %'].filter(function(x){return x!==cor;})).slice(0,3));
@@ -695,7 +704,7 @@ var GEN={
       var p2=genPres({pts:30}); var c2=calcPres(p2,null);
       var ops2=[String(c2.ganan),String(Math.floor(c2.baseOf+c2.acc+c2.lc)),String(Math.floor(c2.baseOf)),String(c2.ganan+12)];
       ops2=ops2.filter(function(v,i){return ops2.indexOf(v)===i;}); while(ops2.length<4) ops2.push(String(c2.ganan+ops2.length*7));
-      qs.push({ctx:resumenPres(p2),q:'El cliente paga este pedido sin canjear. ¿Cuántos puntos gana?',ops:ops2,c:0,x:'Suman lentes, aros, antirreflejos ('+money(c2.baseOf)+')'+(c2.acc?' y accesorios ('+money(c2.acc)+')':'')+(c2.lc?'; los lentes de contacto ('+money(c2.lc)+') no suman':'')+'. 1 punto por cada $1 completo: <b>'+c2.ganan+'</b>.'});
+      qs.push({ctx:resumenPres(p2),q:'El cliente paga este pedido sin canjear. ¿Cuántos puntos gana?',ops:ops2,c:0,x:'Suman lentes, aros, antirreflejos ('+money(c2.baseOf)+')'+(c2.acc?' y accesorios ('+money(c2.acc)+')':'')+(c2.lc?'; los lentes de contacto ('+money(c2.lc)+') no suman':'')+'. 1 punto por cada $1 pagado: <b>'+c2.ganan+'</b>.'});
     }
     return shuffle(qs);
   },
