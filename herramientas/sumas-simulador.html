@@ -12,7 +12,7 @@
   --cian:#00abc8; --cian-o:#00788d; --oro:#ffc629; --carbon:#373a36; --gris:#6b6e6a;
   --fondo:#f4f7f8; --card:#ffffff; --cian-s:#e5f6f9; --oro-s:#fff6dd; --linea:#e1e7e9;
   --ok:#2e9e5b; --ok-s:#e7f5ec; --al:#b98a00; --al-s:#fff6dd; --cr:#d64545; --cr-s:#fdeaea;
-  --odoo:#714b67; --odoo-s:#f3edf2; --perfil:#3fb3d9; --comp:#5b5d5a;
+  --odoo:#714b67; --odoo-s:#f3edf2; --perfil:#17a2b8; --perfil-cot:#8e44ad; --comp:#616161; --comp-s:#d8dadd;
   --ed-bg:#fffcf0; --ed-bd:#f0d98a; --sombra:0 2px 12px rgba(0,0,0,.06);
   --f:'Poppins','Segoe UI',Arial,sans-serif;
 }
@@ -90,7 +90,8 @@ td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
 .o-f{display:grid;grid-template-columns:150px minmax(0,1fr);gap:8px;align-items:center;min-height:30px}
 .o-f .l{font-weight:600}
 .bdg{display:inline-block;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:500;color:#fff}
-.bdg.perfil{background:var(--perfil)} .bdg.comp{background:var(--comp)} .bdg.vig{background:#2e9e5b} .bdg.pv{background:#e0a800;color:#373a36} .bdg.ven{background:#d64545}
+/* colores como en Odoo: Perfil de clientes celeste, Perfil de cotizantes morado; Comportamiento Leal/Comparador gris oscuro, Primerizo/Directo gris claro */
+.bdg.perfil{background:var(--perfil)} .bdg.perfil.cot{background:var(--perfil-cot)} .bdg.comp{background:var(--comp)} .bdg.comp.suave{background:var(--comp-s);color:#000} .bdg.vig{background:#2e9e5b} .bdg.pv{background:#e99d00;color:#000} .bdg.ven{background:#d44c59}
 .o-tabla th{background:var(--odoo-s);color:var(--carbon);border-bottom:1px solid var(--linea)}
 .o-btns{display:flex;gap:8px;flex-wrap:wrap}
 .o-btn{font:500 13px var(--f);border:1px solid var(--linea);background:var(--card);color:var(--carbon);border-radius:6px;padding:6px 12px;cursor:pointer}
@@ -446,7 +447,7 @@ function explicar(c){
     'Es <b>'+(c.cot?'cotizante':'cliente')+'</b> porque '+(c.cot?'solo tiene presupuestos oftálmicos':'tiene pedidos de venta oftálmicos')+'. '+
     'Promedio: '+money(c.prom)+' → <b>'+c.metal+'</b>. '+
     (c.cot?'Último presupuesto hace '+c.ult+' días → <b>'+c.t+'</b>. ':'Última compra oftálmica hace '+(c.ult>=365?(c.ult/365).toFixed(1)+' años':Math.round(c.ult/30)+' meses')+' → <b>'+c.t+'</b>. ')+
-    of.length+' '+(c.cot?'presupuesto'+(of.length>1?'s':''):'compra'+(of.length>1?'s':''))+' oftálmica'+(of.length>1?'s':'')+' → <b>'+c.et2+'</b>.';
+    of.length+' '+(c.cot?'presupuesto'+(of.length>1?'s':''):'compra'+(of.length>1?'s':''))+' oftálmic'+(c.cot?'o':'a')+(of.length>1?'s':'')+' → <b>'+c.et2+'</b>.';
 }
 var etiC=null, etiSel={};
 function pintarEti(){
@@ -456,7 +457,7 @@ function pintarEti(){
   $('etiCaso').querySelectorAll('.chips').forEach(function(ch){ch.addEventListener('click',function(e){var b=e.target.closest('.chip-b');if(!b)return;ch.querySelectorAll('.chip-b').forEach(function(x){x.setAttribute('aria-pressed',x===b);});etiSel[ch.dataset.k]=b.dataset.v;$('etiCheck').disabled=!(etiSel.m&&etiSel.t&&etiSel.c);});});
   $('etiCheck').addEventListener('click',function(){
     var ok=etiSel.m===etiC.metal&&etiSel.t===etiC.t&&etiSel.c===etiC.et2; prac('eti',ok);
-    $('etiFb').innerHTML='<div class="fb '+(ok?'ok':'mal')+'"><b>'+(ok?'Correcto':'Revisa tu respuesta')+': <span class="bdg perfil">'+etiC.et1+'</span> <span class="bdg comp">'+etiC.et2+'</span></b><span>'+explicar(etiC)+'</span></div>';
+    $('etiFb').innerHTML='<div class="fb '+(ok?'ok':'mal')+'"><b>'+(ok?'Correcto':'Revisa tu respuesta')+': <span class="bdg '+clsP(etiC.et1)+'">'+etiC.et1+'</span> <span class="bdg '+clsC(etiC.et2)+'">'+etiC.et2+'</span></b><span>'+explicar(etiC)+'</span></div>';
   });
 }
 $('etiNuevo').addEventListener('click',pintarEti);
@@ -475,10 +476,12 @@ var INTERP=[
   {e1:'Plata Postergando',e2:'Comparador',d:'Nunca ha comprado; 2 o más presupuestos de valor medio y el último hace un mes o más.',a:'Está comparando: explica con claridad las diferencias y el valor de cada opción.'}
 ];
 var VALIDAS=INTERP.filter(function(x){return x.a;});
+function clsP(e1){return 'perfil'+(/Decidiendo|Postergando/.test(e1)?' cot':'');}
+function clsC(e2){return 'comp'+(/Primerizo|Directo/.test(e2)?' suave':'');}
 function tarjetaOdoo(e1,e2,nom){
   // Semáforo de vigencia: el color y la palabra siempre van juntos (verde = Vigente, amarillo = Por vencer, rojo = Vencido)
   var sem=pick([['vig','Vigente'],['pv','Por vencer'],['ven','Vencido']]);
-  return '<div class="odoo" style="max-width:320px"><div class="o-body" style="gap:6px"><span class="bdg '+sem[0]+'" style="align-self:flex-start">'+sem[1]+'</span><b>'+esc(nom)+'</b><span class="num">'+money(rnd(120,520))+'</span><div><span class="bdg perfil">'+e1+'</span></div><div><span class="bdg comp">'+e2+'</span></div></div></div>';
+  return '<div class="odoo" style="max-width:320px"><div class="o-body" style="gap:6px"><span class="bdg '+sem[0]+'" style="align-self:flex-start">'+sem[1]+'</span><b>'+esc(nom)+'</b><span class="num">'+money(rnd(120,520))+'</span><div><span class="bdg '+clsP(e1)+'">'+e1+'</span></div><div><span class="bdg '+clsC(e2)+'">'+e2+'</span></div></div></div>';
 }
 function pintarInt(){
   var x=pick(VALIDAS), ops=shuffle([x].concat(shuffle(VALIDAS.filter(function(y){return y!==x;})).slice(0,3)));
