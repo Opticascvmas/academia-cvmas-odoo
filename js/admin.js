@@ -137,9 +137,29 @@ const ZONAS = [
   { nombre: "Compras",     sucursales: ["Compras"] },
   { nombre: "RRHH",        sucursales: ["Recursos Humanos", "RRHH"] },
   { nombre: "Ventas",      sucursales: ["Ventas"] },
-  { nombre: "Empresarial", sucursales: ["Empresarial"] }
+  { nombre: "Empresarial", sucursales: ["Empresarial"] },
+  { nombre: "Analistas",   sucursales: ["Analista", "Analistas", "Analisis"] },
+  { nombre: "Coberturas",  sucursales: ["Coberturas"] }
 ];
 const ZONA_SIN = "Sin zona asignada";
+
+// ─────────────────────────────────────────────────────────────
+// 🏷️ ESTATUS DEL COLABORADOR (se asigna en la pestaña Usuarios)
+// Se guarda en users/{uid}.estatus. "Ya no labora" no se cuenta
+// en los indicadores ni listas de Notas por módulo.
+// ─────────────────────────────────────────────────────────────
+const CVX_ESTATUS = [
+  { id: "vacaciones",  n: "De vacaciones",              ico: "🏖️", cls: "vac" },
+  { id: "maternidad",  n: "De maternidad",              ico: "🍼", cls: "mat" },
+  { id: "incapacidad", n: "Incapacitado/a",             ico: "🩺", cls: "inc" },
+  { id: "baja",        n: "Ya no labora en la empresa", ico: "🚪", cls: "baja" }
+];
+function cvxEstatusDe(id) { return CVX_ESTATUS.find(e => e.id === id) || null; }
+function cvxEstatusTexto(id) { const e = cvxEstatusDe(id); return e ? e.n : ""; }
+function cvxEstatusChip(u) {
+  const e = cvxEstatusDe(u && u.estatus);
+  return e ? `<span class="cvx-est ${e.cls}" title="Estatus: ${esc(e.n)}">${e.ico} ${esc(e.n)}</span>` : "";
+}
 function cvxNorm(t) { return String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim(); }
 const CVX_ZONA_DE = {};
 ZONAS.forEach(z => z.sucursales.forEach(b => { CVX_ZONA_DE[cvxNorm(b)] = z.nombre; }));
@@ -565,6 +585,7 @@ function computeData(range) {
       sumas,
       simu,
       excepcionSumas: !!u.excepcionSumas,
+      estatus: cvxEstatusDe(u.estatus) ? u.estatus : "",
       totalMod: TOTAL_MOD,
       progress: Math.round((moduleEntries.length / TOTAL_MOD) * 100),
       modules: moduleEntries
@@ -1100,11 +1121,26 @@ const cvxPorNombre = (a, b) => a.u.name.localeCompare(b.u.name, 'es', { sensitiv
 const cvxPorZona = (a, b) => cvxOrdenZona(a.u.zona) - cvxOrdenZona(b.u.zona) || a.u.zona.localeCompare(b.u.zona, 'es')
   || a.u.branch.localeCompare(b.u.branch, 'es') || cvxPorNombre(a, b);
 // Filas según sucursales marcadas (sin búsqueda): base de los indicadores y de la lista Sí / No
-function cvxMatrizBase(d) {
+// Quien está marcado como "Ya no labora en la empresa" no se cuenta (se lista aparte con cvxMatrizBajas)
+function cvxMatrizBase(d, conBajas) {
   const mods = cvxMatrizModulos();
   let filas = d.enriched.map(u => cvxMatrizFila(u, mods));
   if (CVX_MATRIZ.sucs.length) filas = filas.filter(f => CVX_MATRIZ.sucs.includes(f.u.branch));
+  if (!conBajas) filas = filas.filter(f => f.u.estatus !== 'baja');
   return filas;
+}
+function cvxMatrizBajas(d) {
+  const filas = cvxMatrizBase(d, true).filter(f => f.u.estatus === 'baja').sort(cvxPorZona);
+  if (!filas.length) return '';
+  return `
+    <div class="cvp-card">
+      <div class="cvx-card-head"><h3>🚪 Ya no laboran en la empresa <span class="cvx-est-n">${filas.length}</span></h3>
+        <span class="cvp-muted">No se cuentan en los indicadores, gráficas ni listas de esta pestaña. Respeta el filtro de zonas y sucursales.</span></div>
+      <div class="cvx-tablewrap cvx-mx-scroll"><table class="cvx-table">
+        <thead><tr><th>Colaborador</th><th>Sucursal</th><th class="num">Módulos realizados</th><th>Último acceso a la academia</th></tr></thead>
+        <tbody>${filas.map(f => `<tr><td><b>${esc(f.u.name)}</b>${cvxEstatusChip(f.u)}</td><td>${esc(f.u.branch)}<small class="cvx-zchip">${esc(f.u.zona)}</small></td><td class="num">${f.hechos}/${cvxMatrizModulos().length}</td><td>${f.u.lastLogin ? esc(fechaElSalvador(f.u.lastLogin)) : '<span class="cvp-muted">Nunca ha entrado</span>'}</td></tr>`).join('')}</tbody>
+      </table></div>
+    </div>`;
 }
 function cvxMatrizFilas(d) {
   const mods = cvxMatrizModsVisibles();
@@ -1126,7 +1162,7 @@ function cvxMatrizTabla(d) {
     ? `<tr><th class="cvx-mx-nom">—</th><td colspan="${mods.length + 2}" class="cvx-mx-vacia">No hay colaboradores con ese filtro.</td></tr>`
     : filas.map((f, i) => `${CVX_MATRIZ.orden === 'zona' && (i === 0 || filas[i - 1].u.branch !== f.u.branch)
         ? `<tr class="cvx-mx-grupo"><td colspan="${mods.length + 3}"><span>${esc(f.u.zona)} · <b>${esc(f.u.branch)}</b> · ${filas.filter(x => x.u.branch === f.u.branch).length} pers.</span></td></tr>` : ''}<tr>
-      <th class="cvx-mx-nom" scope="row" title="${esc(f.u.email)}">${esc(f.u.name)}<small>${esc(f.u.zona)} · ${esc(f.u.branch)}</small></th>
+      <th class="cvx-mx-nom" scope="row" title="${esc(f.u.email)}">${esc(f.u.name)}${cvxEstatusChip(f.u)}<small>${esc(f.u.zona)} · ${esc(f.u.branch)}</small></th>
       <td class="cvx-mx-res">${f.prom == null ? '<span class="cvx-mx-na">—</span>' : `<span class="cvx-chip ${cvxTone(f.prom)}">${f.prom}%</span>`}</td>
       <td class="cvx-mx-res">${f.hechos}<small>/${totalMods}</small></td>
       ${mods.map(m => {
@@ -1157,10 +1193,11 @@ function cvxMatrizKpis(d) {
   const sucsVista = [...new Set(d.enriched.map(u => u.branch))];
   const ambito = CVX_MATRIZ.sucs.length ? 'en ' + esc(cvxSelTexto(CVX_MATRIZ.sucs, sucsVista)) : 'en todas las zonas y sucursales';
   const pctNo = total ? 100 - pct : 0;
+  const nBajas = cvxMatrizBase(d, true).length - total;
   const equiv = n => `Equivalente a ${n} ${n === 1 ? 'usuario' : 'usuarios'}`;
   return `
     <div class="cvx-mx-kpis">
-      <div class="cvx-kpi"><div class="cvx-kpi-label">Usuarios activos</div><div class="cvx-kpi-value">${total}</div><div class="cvx-kpi-sub">${ambito}</div></div>
+      <div class="cvx-kpi"><div class="cvx-kpi-label">Usuarios activos</div><div class="cvx-kpi-value">${total}</div><div class="cvx-kpi-sub">${ambito}${nBajas ? ` · no incluye ${nBajas} que ya no labora${nBajas === 1 ? '' : 'n'}` : ''}</div></div>
       <div class="cvx-kpi ok"><div class="cvx-kpi-label">${mod ? 'Ya realizaron el módulo' : 'Han realizado al menos un módulo'}</div><div class="cvx-kpi-value">${pct}%</div>
         <div class="cvx-meter"><i style="width:${pct}%"></i></div><div class="cvx-kpi-sub">${equiv(hechos)}</div></div>
       <div class="cvx-kpi ${pend ? 'danger' : 'ok'}"><div class="cvx-kpi-label">${mod ? 'Aún no lo han realizado' : 'Sin ningún módulo'}</div><div class="cvx-kpi-value">${pctNo}%</div>
@@ -1200,10 +1237,10 @@ function cvxMatrizSiNo(d) {
     const ok = v.videos === 7 && v.guia === 10;
     return `<span class="cvx-chip ${ok ? 'warn' : (v.videos || v.guia ? 'neutro' : 'danger')}">${ok ? 'Contenido completo · falta el quiz' : (v.videos || v.guia ? 'Contenido incompleto' : 'Sin avance')}</span><small class="cvx-zchip">🎬 Videos ${v.videos}/7 · 📘 Guía ${v.guia}/10${v.excepcion ? ' · ⭐ marcados por Capacitación' : ''}</small>`;
   };
-  const filaSi = f => { const m = f.porMod[mod.key]; return `<tr><td><b>${esc(f.u.name)}</b>${m.rescatado ? '<small class="cvx-zchip" title="El quiz estaba en el historial pero no en el resumen de notas">↺ recuperado del historial</small>' : ''}${m.registrado ? '<small class="cvx-zchip" title="Nota registrada manualmente por Capacitación">📝 registrada por Capacitación</small>' : ''}</td><td>${esc(f.u.branch)}<small class="cvx-zchip">${esc(f.u.zona)}</small></td><td class="num"><span class="cvx-chip ${cvxTone(m.lastScore)}" title="Promedio de sus intentos: ${m.average}%">${m.lastScore}%</span></td><td class="num">${m.attempts}</td></tr>`; };
+  const filaSi = f => { const m = f.porMod[mod.key]; return `<tr><td><b>${esc(f.u.name)}</b>${cvxEstatusChip(f.u)}${m.rescatado ? '<small class="cvx-zchip" title="El quiz estaba en el historial pero no en el resumen de notas">↺ recuperado del historial</small>' : ''}${m.registrado ? '<small class="cvx-zchip" title="Nota registrada manualmente por Capacitación">📝 registrada por Capacitación</small>' : ''}</td><td>${esc(f.u.branch)}<small class="cvx-zchip">${esc(f.u.zona)}</small></td><td class="num"><span class="cvx-chip ${cvxTone(m.lastScore)}" title="Promedio de sus intentos: ${m.average}%">${m.lastScore}%</span></td><td class="num">${m.attempts}</td></tr>`; };
   const btnExc = f => !currentCanEdit() ? (f.u.excepcionSumas ? '<small class="cvx-zchip">⭐ Quiz habilitado por Capacitación</small>' : '')
     : `<button type="button" class="cvx-exc ${f.u.excepcionSumas ? 'on' : ''}" onclick="cvxExcepcionSumas('${f.u.id}', ${!f.u.excepcionSumas})" title="Permite hacer el quiz sin repetir videos y guía">${f.u.excepcionSumas ? '⭐ Quiz habilitado · quitar' : 'Habilitar quiz sin requisitos'}</button>`;
-  const filaNo = f => `<tr><td><b>${esc(f.u.name)}</b>${esSumas ? btnExc(f) : ''}</td><td>${esc(f.u.branch)}<small class="cvx-zchip">${esc(f.u.zona)}</small></td>${esSumas ? `<td>${avance(f)}</td>` : ''}<td>${f.u.lastLogin ? esc(fechaElSalvador(f.u.lastLogin)) : '<span class="cvp-muted">Nunca ha entrado</span>'}</td></tr>`;
+  const filaNo = f => `<tr><td><b>${esc(f.u.name)}</b>${cvxEstatusChip(f.u)}${esSumas ? btnExc(f) : ''}</td><td>${esc(f.u.branch)}<small class="cvx-zchip">${esc(f.u.zona)}</small></td>${esSumas ? `<td>${avance(f)}</td>` : ''}<td>${f.u.lastLogin ? esc(fechaElSalvador(f.u.lastLogin)) : '<span class="cvp-muted">Nunca ha entrado</span>'}</td></tr>`;
   return `
     <div class="cvx-mx-sino">
       <div class="cvx-mx-lista si">
@@ -1261,6 +1298,65 @@ function cvxSimCelda(m) {
     : '<span class="cvp-muted">🎯 —</span>';
   return `<div class="cvx-sim-cel">${pr}${mi}</div>`;
 }
+/* ---------- Gráfica de pastel por área (clic en una tarjeta del simulador) ----------
+   Usa exactamente las mismas filas que las tarjetas: módulo SUMÁS + filtro de zonas y
+   sucursales, sin quienes ya no laboran. Se redibuja sola al cambiar los filtros. */
+let CVX_SIM_PIE = '';          // '' | 'activos' | 'ok' | 'prog' | 'sin'
+let CVX_SIM_GRUPOS = null;
+let CVX_SIM_CHART = null;
+const CVX_AREA_COLOR = { "Zona 1": "#00abc8", "Zona 2": "#ffc629", "Zona 3": "#373a36", "Mercadeo": "#e5484d",
+  "Empresarial": "#2e9e5b", "SAC": "#7c5cff", "Compras": "#ff8a3d", "Analistas": "#4aa3df",
+  "Coberturas": "#c2185b", "Ventas": "#8bc34a", "RRHH": "#a1887f" };
+const CVX_AREA_EXTRA = ["#90a4ae", "#cfd8dc", "#b39ddb", "#80cbc4"];
+function cvxSimPorArea(clave) {
+  const g = CVX_SIM_GRUPOS && CVX_SIM_GRUPOS[clave];
+  if (!g) return null;
+  const cuenta = {}, enArea = {};
+  CVX_SIM_GRUPOS.base.forEach(f => { enArea[f.u.zona] = (enArea[f.u.zona] || 0) + 1; });
+  g.filas.forEach(f => { cuenta[f.u.zona] = (cuenta[f.u.zona] || 0) + 1; });
+  const areas = Object.keys(cuenta).sort((a, b) => cvxOrdenZona(a) - cvxOrdenZona(b) || a.localeCompare(b, 'es'));
+  let extra = 0;
+  return { titulo: g.t, total: g.filas.length,
+    filas: areas.map(a => ({ area: a, n: cuenta[a], deArea: enArea[a] || 0, color: CVX_AREA_COLOR[a] || CVX_AREA_EXTRA[extra++ % CVX_AREA_EXTRA.length] })) };
+}
+function cvxSimPieHTML() {
+  if (!CVX_SIM_PIE) return '';
+  const r = cvxSimPorArea(CVX_SIM_PIE);
+  if (!r) return '';
+  if (!r.total) return `<div class="cvx-sim-pie"><p class="cvp-empty">No hay colaboradores en «${esc(r.titulo)}» con los filtros actuales.</p></div>`;
+  const otro = CVX_SIM_PIE !== 'activos';
+  return `<div class="cvx-sim-pie">
+      <div class="cvx-sim-pie-head"><b>📊 ${esc(r.titulo)} · por área</b><span class="cvp-muted">${r.total} colaborador${r.total === 1 ? '' : 'es'} · según los filtros actuales</span>
+        <button type="button" class="cvx-sim-pie-x" onclick="cvxSimPie('${CVX_SIM_PIE}')" title="Cerrar gráfica">✕</button></div>
+      <div class="cvx-sim-pie-body">
+        <div class="cvx-sim-pie-canvas"><canvas id="cvxSimPieCanvas" aria-label="Gráfica de pastel por área"></canvas></div>
+        <table class="cvx-table cvx-sim-pie-tabla"><thead><tr><th>Área</th><th class="num">Usuarios</th><th class="num">% del grupo</th>${otro ? '<th class="num">% de su área</th>' : ''}</tr></thead>
+          <tbody>${r.filas.map(x => `<tr><td><i style="background:${x.color}"></i>${esc(x.area)}</td><td class="num">${x.n}</td><td class="num">${Math.round(x.n / r.total * 100)}%</td>${otro ? `<td class="num" title="${x.n} de ${x.deArea} colaboradores activos de ${esc(x.area)}">${x.deArea ? Math.round(x.n / x.deArea * 100) : 0}%</td>` : ''}</tr>`).join('')}</tbody>
+        </table>
+      </div>
+      ${otro ? '<p class="cvp-muted cvx-sim-ley">«% de su área»: qué parte de los colaboradores activos de esa área está en este grupo.</p>' : ''}
+    </div>`;
+}
+async function cvxSimPieDibujar() {
+  if (CVX_SIM_CHART) { try { CVX_SIM_CHART.destroy(); } catch (e) {} CVX_SIM_CHART = null; }
+  const el = document.getElementById('cvxSimPieCanvas');
+  if (!el) return;
+  if (!window.Chart) await loadChartJs();
+  if (!window.Chart || !document.body.contains(el)) return;
+  const r = cvxSimPorArea(CVX_SIM_PIE); if (!r || !r.total) return;
+  CVX_SIM_CHART = new Chart(el, {
+    type: 'pie',
+    data: { labels: r.filas.map(x => x.area), datasets: [{ data: r.filas.map(x => x.n), backgroundColor: r.filas.map(x => x.color), borderColor: '#fff', borderWidth: 2 }] },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+        tooltip: { callbacks: { label: c => ` ${c.label}: ${c.parsed} (${Math.round(c.parsed / r.total * 100)}%)` } } } }
+  });
+}
+window.cvxSimPie = function (clave) {
+  CVX_SIM_PIE = CVX_SIM_PIE === clave ? '' : clave;
+  const sm = document.getElementById('cvxMxSim'), d = CVP._last;
+  if (sm && d) sm.innerHTML = cvxMatrizSim(d);
+};
 function cvxMatrizSim(d) {
   const mod = CVX_MATRIZ.mod ? cvxMatrizModulos().find(m => m.key === CVX_MATRIZ.mod) : null;
   if (!mod || !/suma/i.test(cvxNorm(mod.name))) return '';
@@ -1283,7 +1379,7 @@ function cvxMatrizSim(d) {
   });
   const filaUso = f => {
     const s = f.u.simu;
-    return `<tr><td><b>${esc(f.u.name)}</b><small class="cvx-zchip">${esc(f.u.branch)} · ${esc(f.u.zona)}</small></td>
+    return `<tr><td><b>${esc(f.u.name)}</b>${cvxEstatusChip(f.u)}<small class="cvx-zchip">${esc(f.u.branch)} · ${esc(f.u.zona)}</small></td>
       <td class="num">${s.ap || '—'}</td>
       <td>${s.ult ? esc(fechaElSalvador(s.ult)) : '<span class="cvp-muted">—</span>'}</td>
       <td class="num">${s.ap ? cvxSimTiempo(s.min) : '<span class="cvp-muted">—</span>'}</td>
@@ -1291,28 +1387,39 @@ function cvxMatrizSim(d) {
       <td class="num"><span class="cvx-chip ${s.aprobadas === 4 ? 'ok' : s.aprobadas ? 'warn' : 'neutro'}">${s.aprobadas}/4</span></td></tr>`;
   };
   // Tarjeta de cada grupo: cantidad, % sobre los usuarios activos y barra de avance
-  const kpiGrupo = (tono, titulo, n, detalle) => {
+  // Grupos para las gráficas de pastel (misma información filtrada que las tarjetas)
+  CVX_SIM_GRUPOS = {
+    activos: { t: 'Usuarios activos', filas: base },
+    ok:      { t: 'Completaron el simulador', filas: terminaron },
+    prog:    { t: 'En progreso', filas: avanzando },
+    sin:     { t: 'Sin iniciar', filas: nunca },
+    base
+  };
+  const sel = k => `cvx-sim-clic${CVX_SIM_PIE === k ? ' sel' : ''}" role="button" tabindex="0" onclick="cvxSimPie('${k}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();cvxSimPie('${k}')}" title="Clic para ver la gráfica por área`;
+  const kpiGrupo = (k, tono, titulo, n, detalle) => {
     const p = total ? Math.round(n / total * 100) : 0;
-    return `<div class="cvx-kpi ${tono}"><div class="cvx-kpi-label">${titulo}</div><div class="cvx-kpi-value">${p}% <small>${n} usuario${n === 1 ? '' : 's'}</small></div>
-          <div class="cvx-meter"><i style="width:${p}%"></i></div><div class="cvx-kpi-sub">${detalle}</div></div>`;
+    return `<div class="cvx-kpi ${tono} ${sel(k)}"><div class="cvx-kpi-label">${titulo}</div><div class="cvx-kpi-value">${p}% <small>${n} usuario${n === 1 ? '' : 's'}</small></div>
+          <div class="cvx-meter"><i style="width:${p}%"></i></div><div class="cvx-kpi-sub">${detalle}</div><div class="cvx-sim-ver">${CVX_SIM_PIE === k ? '▴ Ocultar gráfica' : '📊 Ver por área'}</div></div>`;
   };
   const encabezadoUso =`<thead><tr><th>Colaborador</th><th class="num">Entradas</th><th>Último uso</th><th class="num">Tiempo total</th>${CVX_SIM_MODS.map(m => `<th>${esc(m.n)}</th>`).join('')}<th class="num">Misiones</th></tr></thead>`;
   const tablaUso = (lista, vacio) => `<div class="cvx-tablewrap cvx-mx-scroll"><table class="cvx-table cvx-sim-tabla">
         ${encabezadoUso}
         <tbody>${lista.map(filaUso).join('') || `<tr><td colspan="9" class="cvp-empty">${vacio}</td></tr>`}</tbody>
       </table></div>`;
-  const filaNunca = f => `<tr><td><b>${esc(f.u.name)}</b></td><td>${esc(f.u.branch)}<small class="cvx-zchip">${esc(f.u.zona)}</small></td><td>${f.u.lastLogin ? esc(fechaElSalvador(f.u.lastLogin)) : '<span class="cvp-muted">Nunca ha entrado a la academia</span>'}</td></tr>`;
+  if (CVX_SIM_PIE) setTimeout(cvxSimPieDibujar, 0);   // el canvas existe en cuanto se inserta este HTML
+  const filaNunca = f => `<tr><td><b>${esc(f.u.name)}</b>${cvxEstatusChip(f.u)}</td><td>${esc(f.u.branch)}<small class="cvx-zchip">${esc(f.u.zona)}</small></td><td>${f.u.lastLogin ? esc(fechaElSalvador(f.u.lastLogin)) : '<span class="cvp-muted">Nunca ha entrado a la academia</span>'}</td></tr>`;
   return `
     <div class="cvp-card">
       <div class="cvx-card-head"><h3>🎯 Simulador SUMÁS · quién entró y cómo lo usa</h3>
         <span class="cvp-muted">Práctica opcional: no es requisito para el quiz. Respeta el filtro de zonas y sucursales.</span></div>
       <div class="cvx-mx-kpis">
-        <div class="cvx-kpi"><div class="cvx-kpi-label">Usuarios activos</div><div class="cvx-kpi-value">${total}</div>
-          <div class="cvx-kpi-sub">colaboradores dentro del filtro de zonas y sucursales</div></div>
-        ${kpiGrupo('ok', 'Completaron el simulador', terminaron.length, 'aprobaron las 4 misiones (80% o más)')}
-        ${kpiGrupo('warn', 'En progreso', avanzando.length, 'entraron, pero aún les faltan misiones')}
-        ${kpiGrupo('danger', 'Sin iniciar', nunca.length, 'no han entrado al simulador')}
+        <div class="cvx-kpi ${sel('activos')}"><div class="cvx-kpi-label">Usuarios activos</div><div class="cvx-kpi-value">${total}</div>
+          <div class="cvx-kpi-sub">colaboradores dentro del filtro de zonas y sucursales</div><div class="cvx-sim-ver">${CVX_SIM_PIE === 'activos' ? '▴ Ocultar gráfica' : '📊 Ver por área'}</div></div>
+        ${kpiGrupo('ok', 'ok', 'Completaron el simulador', terminaron.length, 'aprobaron las 4 misiones (80% o más)')}
+        ${kpiGrupo('prog', 'warn', 'En progreso', avanzando.length, 'entraron, pero aún les faltan misiones')}
+        ${kpiGrupo('sin', 'danger', 'Sin iniciar', nunca.length, 'no han entrado al simulador')}
       </div>
+      <div id="cvxSimPie">${cvxSimPieHTML()}</div>
       <div class="cvx-sim-mods">${porMod.map(m => `<div><b>${esc(m.nom)}</b><span>🧪 ${m.n} ejercicio${m.n === 1 ? '' : 's'}${m.n ? ' · ' + Math.round(m.ok / m.n * 100) + '% correctos' : ''}</span><span>🎯 ${m.ap} con la misión aprobada</span></div>`).join('')}</div>
       <p class="cvp-muted cvx-sim-ley">🧪 Práctica: ejercicios correctos / realizados · 🎯 Misión: mejor nota y número de intentos (×). Las entradas y el tiempo se registran desde esta versión; antes solo se guardaban las misiones.</p>
       <h4 class="cvx-sim-h4 ok">✔ Completaron el simulador · 4 de 4 misiones aprobadas <span>${terminaron.length}</span></h4>
@@ -1430,6 +1537,7 @@ function renderMatriz(d) {
       <div id="cvxMxSiNo">${cvxMatrizSiNo(d)}</div>
     </div>
     <div id="cvxMxSim">${cvxMatrizSim(d)}</div>
+    <div id="cvxMxBajas">${cvxMatrizBajas(d)}</div>
     <div class="cvp-card">
       <div class="cvx-card-head"><h3>${cvxIco('matriz')} Tabla general: usuarios y módulos</h3><span class="cvp-muted">Desliza la tabla: el nombre y los módulos quedan fijos.</span></div>
       <div class="cvx-mx-wrap" id="cvxMxTabla">${cvxMatrizTabla(d)}</div>
@@ -1443,6 +1551,7 @@ function cvxMatrizRefrescar() {
   if (t) { t.innerHTML = cvxMatrizTabla(d); }
   if (s) s.innerHTML = cvxMatrizSiNo(d);
   const sm = document.getElementById('cvxMxSim'); if (sm) sm.innerHTML = cvxMatrizSim(d);
+  const bj = document.getElementById('cvxMxBajas'); if (bj) bj.innerHTML = cvxMatrizBajas(d);
 }
 window.cvxMatrizFiltrar = function (campo, valor) {
   CVX_MATRIZ[campo] = valor;
@@ -1709,6 +1818,7 @@ function renderUserCard(u) {
         <h3>${esc(u.name)}</h3>
         <span class="cvp-pill ${statusClass}">● ${u.statusLabel}</span>
       </div>
+      ${u.estatus ? `<div class="cvx-est-fila">${cvxEstatusChip(u)}</div>` : ''}
       <p class="cvp-muted">${esc(u.email)}</p>
       <p class="cvp-tags">🏢 ${esc(u.branch)} &nbsp;·&nbsp; 💼 ${esc(u.position)} &nbsp;·&nbsp; 🔑 ${esc(u.role)}</p>
 
@@ -1752,6 +1862,10 @@ function renderUserCard(u) {
           <option value="optometra" ${u.role === "optometra" ? "selected" : ""}>optometra (academia óptica)</option>
           <option value="viewer" ${u.role === "viewer" ? "selected" : ""}>viewer (solo ver)</option>
           <option value="admin" ${u.role === "admin" ? "selected" : ""}>admin</option>
+        </select>
+        <select id="estatus-${u.id}" title="Estatus del colaborador">
+          <option value="" ${!u.estatus ? "selected" : ""}>Estatus: activo (sin novedad)</option>
+          ${CVX_ESTATUS.map(e => `<option value="${e.id}" ${u.estatus === e.id ? "selected" : ""}>${e.ico} ${esc(e.n)}</option>`).join("")}
         </select>
         <button class="cvp-btn save" onclick="saveUserInfo('${u.id}')">💾 Guardar cambios</button>
         <button class="cvp-btn cvx-eliminar" onclick="cvxEliminarUsuario('${u.id}')">🗑️ Eliminar usuario</button>
@@ -1813,17 +1927,28 @@ window.saveUserInfo = async function (userId) {
   const branch   = document.getElementById(`branch-${userId}`).value;
   const position = document.getElementById(`position-${userId}`).value;
   const role     = document.getElementById(`role-${userId}`).value;
+  const selEst   = document.getElementById(`estatus-${userId}`);
+  const estatus  = selEst ? selEst.value : undefined;
 
   const { doc, updateDoc, setDoc, collection } = await import(
     "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js"
   );
 
-  await updateDoc(doc(window.db, "users", userId), { name, branch, position, role });
+  const cambios = { name, branch, position, role };
+  // Estatus: solo se escribe si cambió (así no se toca el dato de nadie más)
+  const antes = CVP.users.find(x => x.id === userId);
+  if (estatus !== undefined && estatus !== ((antes && antes.estatus) || "")) {
+    cambios.estatus = estatus;
+    cambios.estatusPor = window.CVP_CURRENT_EMAIL || "admin";
+    cambios.estatusAt = new Date().toISOString();
+  }
+  await updateDoc(doc(window.db, "users", userId), cambios);
 
   // Log de cambios (seguridad) — colección admin_logs
   try {
     await setDoc(doc(collection(window.db, "admin_logs")), {
       userId, name, branch, position, role,
+      ...(cambios.estatus !== undefined ? { estatus: cambios.estatus } : {}),
       changedBy: window.CVP_CURRENT_EMAIL || "admin",
       at: new Date().toISOString()
     });
@@ -2671,8 +2796,8 @@ window.cvxExportSiNo = async function () {
   const sv = iso => { const k = new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/El_Salvador" }).split("-").map(Number); return new Date(Date.UTC(k[0], k[1] - 1, k[2])); };
   // Hoja 1: ya lo realizaron
   hoja("Ya lo realizaron", `${mod.key}. ${mod.name} · Ya lo realizaron (${si.length})`,
-    [["Colaborador", 32], ["Zona", 16], ["Sucursal", 22], ["Última nota", 13, "center"], ["Resultado", 14, "center"], ["Promedio de intentos", 14, "center"], ["Intentos", 10, "center"], ["Observación", 28]],
-    si.map(f => { const m = f.porMod[mod.key]; return [f.u.name, f.u.zona, f.u.branch, m.lastScore / 100, m.lastScore >= 80 ? "Aprobado" : "No aprobado", m.average / 100, m.attempts, m.rescatado ? "Recuperado del historial" : (m.registrado ? "Registrada por Capacitación" : "")]; }),
+    [["Colaborador", 32], ["Zona", 16], ["Sucursal", 22], ["Última nota", 13, "center"], ["Resultado", 14, "center"], ["Promedio de intentos", 14, "center"], ["Intentos", 10, "center"], ["Observación", 28], ["Estatus", 22]],
+    si.map(f => { const m = f.porMod[mod.key]; return [f.u.name, f.u.zona, f.u.branch, m.lastScore / 100, m.lastScore >= 80 ? "Aprobado" : "No aprobado", m.average / 100, m.attempts, m.rescatado ? "Recuperado del historial" : (m.registrado ? "Registrada por Capacitación" : ""), cvxEstatusTexto(f.u.estatus)]; }),
     (r, i) => {
       const m = si[i].porMod[mod.key];
       [4, 6].forEach(c => { r.getCell(c).numFmt = "0%"; });
@@ -2682,18 +2807,18 @@ window.cvxExportSiNo = async function () {
   // Hoja 2: aún no lo realizan
   const colsNo = [["Colaborador", 32], ["Zona", 16], ["Sucursal", 22]];
   if (esSumas) colsNo.push(["Avance del contenido", 26], ["Videos", 10, "center"], ["Guía", 10, "center"], ["Quiz habilitado por Capacitación", 18, "center"]);
-  colsNo.push(["Último acceso", 15, "center"]);
+  colsNo.push(["Último acceso", 15, "center"], ["Estatus", 22]);
   hoja("Aún no lo realizan", `${mod.key}. ${mod.name} · Aún no lo realizan (${no.length})`, colsNo,
     no.map(f => {
       const v = f.u.sumas || { videos: 0, guia: 0 };
       const est = (v.videos === 7 && v.guia === 10) ? "Contenido completo · falta el quiz" : (v.videos || v.guia ? "Contenido incompleto" : "Sin avance");
       const fila = [f.u.name, f.u.zona, f.u.branch];
       if (esSumas) fila.push(est, `${v.videos}/7`, `${v.guia}/10`, f.u.excepcionSumas ? "Sí" : "");
-      fila.push(f.u.lastLogin ? sv(f.u.lastLogin) : "Nunca ha entrado");
+      fila.push(f.u.lastLogin ? sv(f.u.lastLogin) : "Nunca ha entrado", cvxEstatusTexto(f.u.estatus));
       return fila;
     }),
     (r, i) => {
-      const ultima = colsNo.length; if (no[i].u.lastLogin) r.getCell(ultima).numFmt = "dd/mm/yyyy";
+      const ultima = colsNo.length - 1; if (no[i].u.lastLogin) r.getCell(ultima).numFmt = "dd/mm/yyyy";
       if (esSumas) {
         const t = r.getCell(4).value; const [tf, tb] = t === "Sin avance" ? ["cr", "crB"] : t.startsWith("Contenido completo") ? ["al", "alB"] : ["carbon", "cianSuave"];
         r.getCell(4).font = Object.assign({}, fuente, { bold: true, color: { argb: CVX_XLS[tf] } }); r.getCell(4).fill = { type: "pattern", pattern: "solid", fgColor: { argb: CVX_XLS[tb] } };
@@ -2742,11 +2867,11 @@ window.cvpExportXLSX = async function () {
 
   /* ---- Hoja 1: Colaboradores ---- */
   const ws = wb.addWorksheet("Colaboradores " + viewLabel, { views: [{ state: "frozen", xSplit: 1, ySplit: 5, showGridLines: false }] });
-  ws.columns = [{ width: 30 }, { width: 34 }, { width: 16 }, { width: 18 }, { width: 18 }, { width: 14 }, { width: 13 }, { width: 14 }, { width: 13 }, { width: 15 }];
+  ws.columns = [{ width: 30 }, { width: 34 }, { width: 16 }, { width: 18 }, { width: 18 }, { width: 14 }, { width: 13 }, { width: 14 }, { width: 13 }, { width: 15 }, { width: 24 }];
   ws.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
-  cvxHojaEncabezado(ws, wb, logo, `Academia CV+ · Colaboradores ${viewLabel}`, subt, 10);
+  cvxHojaEncabezado(ws, wb, logo, `Academia CV+ · Colaboradores ${viewLabel}`, subt, 11);
   const head = ws.getRow(5);
-  head.values = ["Nombre", "Correo", "Zona", "Sucursal", "Cargo", "Rol", "Promedio", "Módulos completados", "Total intentos", "Último login"];
+  head.values = ["Nombre", "Correo", "Zona", "Sucursal", "Cargo", "Rol", "Promedio", "Módulos completados", "Total intentos", "Último login", "Estatus"];
   cvxEstiloCabecera(head, 30);
   const lista = [...d.enriched].sort((a, b) => cvxPorZona({ u: a }, { u: b }));
   const modsV = cvxMatrizModulos();
@@ -2755,12 +2880,12 @@ window.cvpExportXLSX = async function () {
     if (!(u.avg > 0)) { const fm = cvxMatrizFila(u, modsV); if (fm.prom != null) u = Object.assign({}, u, { avg: fm.prom }); }
     const r = ws.getRow(6 + i);
     r.values = [u.name, u.email, u.zona, u.branch || "", u.position || "", u.role, u.avg > 0 ? u.avg / 100 : null,
-                u.completed + "/" + totalMod, u.totalAttempts, u.lastLogin ? sv(u.lastLogin) : "—"];
+                u.completed + "/" + totalMod, u.totalAttempts, u.lastLogin ? sv(u.lastLogin) : "—", cvxEstatusTexto(u.estatus)];
     r.height = 20;
     r.eachCell({ includeEmpty: true }, (c, col) => {
-      if (col > 10) return;
+      if (col > 11) return;
       c.font = fuente;
-      c.alignment = { vertical: "middle", horizontal: col >= 7 ? "right" : "left" };
+      c.alignment = { vertical: "middle", horizontal: col >= 7 && col <= 10 ? "right" : "left" };
       if (i % 2 === 1) c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: CVX_XLS.cianSuave } };
       c.border = { bottom: { style: "hair", color: { argb: "FFDFE5E7" } } };
     });
@@ -2774,36 +2899,36 @@ window.cvpExportXLSX = async function () {
     } else { prom.value = "—"; }
     r.getCell(10).numFmt = "dd/mm/yyyy";
   });
-  if (lista.length) ws.autoFilter = { from: { row: 5, column: 1 }, to: { row: 5 + lista.length, column: 10 } };
+  if (lista.length) ws.autoFilter = { from: { row: 5, column: 1 }, to: { row: 5 + lista.length, column: 11 } };
   cvxPie(ws, 7 + lista.length, pie);
 
   /* ---- Hoja 2: Notas por módulo (matriz) ---- */
   const mods = cvxMatrizModulos(vista);
   const filas = d.enriched.map(u => cvxMatrizFila(u, mods)).sort(cvxPorZona);
-  const nCols = 5 + mods.length;
+  const nCols = 6 + mods.length;   // Colaborador, Zona, Sucursal, Estatus, Promedio, Módulos + módulos
   const wm = wb.addWorksheet("Notas " + viewLabel, { views: [{ state: "frozen", xSplit: 1, ySplit: 5, showGridLines: false }] });
-  wm.columns = [{ width: 30 }, { width: 16 }, { width: 18 }, { width: 12 }, { width: 11 }].concat(mods.map(() => ({ width: 13 })));
+  wm.columns = [{ width: 30 }, { width: 16 }, { width: 18 }, { width: 20 }, { width: 12 }, { width: 11 }].concat(mods.map(() => ({ width: 13 })));
   wm.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
   cvxHojaEncabezado(wm, wb, logo, `Academia CV+ · Notas por módulo · ${viewLabel}`, subt + " · Última nota de cada colaborador en cada módulo", nCols);
   const hm = wm.getRow(5);
-  hm.values = ["Colaborador", "Zona", "Sucursal", "Promedio", "Módulos"].concat(mods.map(m => `${m.key}. ${m.name}`));
+  hm.values = ["Colaborador", "Zona", "Sucursal", "Estatus", "Promedio", "Módulos"].concat(mods.map(m => `${m.key}. ${m.name}`));
   cvxEstiloCabecera(hm, 66);
   hm.eachCell(c => { c.font = Object.assign({}, c.font, { size: 9 }); });
   hm.getCell(1).font = { name: "Poppins", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
   filas.forEach((f, i) => {
     const r = wm.getRow(6 + i);
-    r.values = [f.u.name, f.u.zona, f.u.branch, f.prom == null ? "—" : f.prom / 100, `${f.hechos}/${mods.length}`]
+    r.values = [f.u.name, f.u.zona, f.u.branch, cvxEstatusTexto(f.u.estatus), f.prom == null ? "—" : f.prom / 100, `${f.hechos}/${mods.length}`]
       .concat(mods.map(m => f.porMod[m.key] ? f.porMod[m.key].lastScore : "—"));
     r.height = 20;
     for (let col = 1; col <= nCols; col++) {
       const c = r.getCell(col);
       c.font = fuente;
-      c.alignment = { vertical: "middle", horizontal: col <= 3 ? "left" : "center" };
+      c.alignment = { vertical: "middle", horizontal: col <= 4 ? "left" : "center" };
       c.border = { bottom: { style: "hair", color: { argb: "FFDFE5E7" } }, right: { style: "hair", color: { argb: "FFDFE5E7" } } };
-      if (i % 2 === 1 && col <= 5) c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: CVX_XLS.cianSuave } };
+      if (i % 2 === 1 && col <= 6) c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: CVX_XLS.cianSuave } };
     }
     r.getCell(1).font = Object.assign({}, fuente, { bold: true });
-    const pc = r.getCell(4);
+    const pc = r.getCell(5);
     if (f.prom != null) {
       pc.numFmt = "0%";
       const [tf, tb] = cvxTono(f.prom);
@@ -2811,7 +2936,7 @@ window.cvpExportXLSX = async function () {
       pc.fill = { type: "pattern", pattern: "solid", fgColor: { argb: CVX_XLS[tb] } };
     }
     mods.forEach((m, j) => {
-      const c = r.getCell(6 + j), x = f.porMod[m.key];
+      const c = r.getCell(7 + j), x = f.porMod[m.key];
       if (x) {
         const [tf, tb] = cvxTono(x.lastScore);
         c.font = Object.assign({}, fuente, { bold: true, color: { argb: CVX_XLS[tf] } });
@@ -2831,7 +2956,7 @@ window.cvpExportXLSX = async function () {
     c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: CVX_XLS[b] } };
   });
   wm.getCell(fl, 1).value = "Semáforo:"; wm.getCell(fl, 1).font = { name: "Poppins", size: 9, bold: true, color: { argb: CVX_XLS.carbon } };
-  wm.getCell(fl, 5).value = "— = sin realizar"; wm.getCell(fl, 5).font = { name: "Poppins", size: 9, color: { argb: CVX_XLS.gris } };
+  wm.getCell(fl, 6).value = "— = sin realizar"; wm.getCell(fl, 6).font = { name: "Poppins", size: 9, color: { argb: CVX_XLS.gris } };
   if (filas.length) wm.autoFilter = { from: { row: 5, column: 1 }, to: { row: 5 + filas.length, column: nCols } };
   cvxPie(wm, fl + 2, pie);
   }   // fin de cada vista
@@ -2860,17 +2985,18 @@ window.cvpExportXLSXSimple = async function () {
   const totalMod = CVP.view === "optometras" ? TOTAL_MODULES_OPTO : TOTAL_MODULES;
 
   const headers = ["Nombre","Correo","Sucursal","Cargo","Rol",
-                   "Promedio (%)","Módulos completados","Total intentos","Último login"];
+                   "Promedio (%)","Módulos completados","Total intentos","Último login","Estatus"];
   const rows = d.enriched.map(u => [
     u.name, u.email, u.branch || "", u.position || "", u.role,
     u.avg,
     u.completed + "/" + totalMod,
     u.totalAttempts,
-    u.lastLogin ? new Date(u.lastLogin).toLocaleDateString("es-SV",{timeZone:"America/El_Salvador"}) : "—"
+    u.lastLogin ? new Date(u.lastLogin).toLocaleDateString("es-SV",{timeZone:"America/El_Salvador"}) : "—",
+    cvxEstatusTexto(u.estatus)
   ]);
 
   const ws = window.XLSX.utils.aoa_to_sheet([headers, ...rows]);
-  ws["!cols"] = [{wch:28},{wch:36},{wch:18},{wch:18},{wch:14},{wch:12},{wch:20},{wch:14},{wch:22}];
+  ws["!cols"] = [{wch:28},{wch:36},{wch:18},{wch:18},{wch:14},{wch:12},{wch:20},{wch:14},{wch:22},{wch:24}];
 
   const wb = window.XLSX.utils.book_new();
   window.XLSX.utils.book_append_sheet(wb, ws, viewLabel);
@@ -3249,6 +3375,24 @@ function injectStyles() {
 .cvx-sim-tabla td{vertical-align:middle}
 .cvx-sim-h4{margin:18px 0 8px;font-size:14px}
 .cvx-sim-h4 span{background:var(--cx-l);border-radius:999px;padding:1px 9px;font-size:12px;margin-left:4px}
+.cvx-est{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap;vertical-align:middle;background:#eef1f2;color:#373a36}
+.cvx-est.vac{background:#e5f6f9;color:#007f95}.cvx-est.mat{background:#fbe9f2;color:#a3226a}
+.cvx-est.inc{background:#fff4d1;color:#8a6400}.cvx-est.baja{background:#eceeed;color:#5b5e5a;text-decoration:none}
+.cvx-mx-nom .cvx-est{margin:2px 0 0;display:table}
+.cvx-est-fila{margin:4px 0 2px}.cvx-est-fila .cvx-est{margin-left:0}
+.cvx-est-n{background:var(--cx-l);border-radius:999px;padding:1px 9px;font-size:12px;margin-left:4px;vertical-align:middle}
+.cvx-sim-clic{cursor:pointer;transition:transform .15s,box-shadow .15s,outline-color .15s;outline:2px solid transparent;outline-offset:-2px}
+.cvx-sim-clic:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.08)}
+.cvx-sim-clic:focus-visible,.cvx-sim-clic.sel{outline-color:var(--cx-c)}
+.cvx-sim-ver{margin-top:8px;font-size:11.5px;font-weight:600;color:var(--cx-c)}
+.cvx-sim-pie{border:1px solid var(--cx-l);border-radius:16px;padding:14px 16px;margin:12px 0 4px;background:#fff}
+.cvx-sim-pie-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.cvx-sim-pie-head b{font-size:14px;color:var(--cx-k)}
+.cvx-sim-pie-x{margin-left:auto;border:0;background:#f2f5f6;border-radius:8px;width:28px;height:28px;cursor:pointer;color:var(--cx-m)}
+.cvx-sim-pie-body{display:grid;grid-template-columns:minmax(220px,320px) 1fr;gap:18px;align-items:center}
+.cvx-sim-pie-canvas{position:relative;height:300px}
+.cvx-sim-pie-tabla td i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px;vertical-align:middle}
+@media (max-width:760px){.cvx-sim-pie-body{grid-template-columns:1fr}.cvx-sim-pie-canvas{height:260px}}
 .cvx-sim-h4{padding-left:10px;border-left:4px solid var(--cx-l)}
 .cvx-sim-h4.ok{border-left-color:var(--cx-ok)}.cvx-sim-h4.ok span{background:var(--cx-okb);color:var(--cx-ok)}
 .cvx-sim-h4.warn{border-left-color:var(--cx-g)}.cvx-sim-h4.warn span{background:var(--cx-wb);color:var(--cx-w)}
