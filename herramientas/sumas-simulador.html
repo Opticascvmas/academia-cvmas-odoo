@@ -163,6 +163,8 @@ input.inp{font:500 14px var(--f);border:1.5px solid var(--linea);border-radius:1
 .pt-n span{font-size:11.5px;padding:3px 9px;border-radius:999px;background:var(--fondo);border:1px solid var(--linea);color:var(--gris)}
 .pt-n span.on{background:var(--cian);border-color:var(--cian);color:#fff}
 
+.fuera{background:#fff6dd;color:#5c4400;border-bottom:2px solid #ffc629;padding:10px 16px;font-size:13.5px;line-height:1.45;text-align:center}
+.fuera b{color:#373a36}
 .toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#373a36;color:#fff;padding:9px 16px;border-radius:999px;font-size:13px;z-index:50;box-shadow:0 6px 18px rgba(0,0,0,.2);max-width:calc(100% - 32px);text-align:center}
 .modal{position:fixed;inset:0;background:rgba(20,22,24,.5);z-index:40;display:grid;place-items:center;padding:16px}
 .modal .box{background:var(--card);color:var(--carbon);border-radius:12px;max-width:440px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.3);overflow:hidden}
@@ -343,14 +345,18 @@ var MIS=[
 // En la Academia el simulador vive en el modal SUMÁS (iframe). Las notas se guardan por usuario
 // en Firestore a través de la Academia (progress/{uid}, campo sumas.sim). Abierto solo, usa este navegador.
 // Cada ejercicio de Práctica se reporta a la Academia (solo para el panel admin; no afecta notas ni el quiz)
-function prac(mod,ok){ try{ var p=window.parent; if(p&&p!==window&&typeof p.CVP_practicaSimulador==='function') p.CVP_practicaSimulador(mod,!!ok); }catch(e){} }
-function ACAD(){ try{ var p=window.parent; return (p&&p!==window&&typeof p.CVP_registrarSimulador==='function')?p:null; }catch(e){ return null; } }
+// La Academia puede ser la ventana que contiene al simulador (iframe) o la que lo abrió en otra pestaña
+function ACADWIN(){ var c=[]; try{ if(window.parent&&window.parent!==window) c.push(window.parent); }catch(e){} try{ if(window.opener&&!window.opener.closed) c.push(window.opener); }catch(e){}
+  for(var i=0;i<c.length;i++){ try{ if(typeof c[i].CVP_registrarSimulador==='function') return c[i]; }catch(e){} } return null; }
+function prac(mod,ok){ try{ var p=ACADWIN(); if(p&&typeof p.CVP_practicaSimulador==='function') p.CVP_practicaSimulador(mod,!!ok); }catch(e){} }
+function ACAD(){ return ACADWIN(); }
 var RES=(function(){ var a=ACAD(); if(a){ try{ return JSON.parse(JSON.stringify(a.CVP_resultadosSimulador()||{})); }catch(e){ return {}; } } return lsG('sumas-sim-res')||{}; })();
 function guardarRes(id,ac,tot){
   var pct=Math.round(ac/tot*100), fechaR=new Date().toISOString(), a=ACAD();
   var dato={tipo:'sumas-simulador',mision:id,nota:pct,aciertos:ac,total:tot,fecha:fechaR};
   if(a){ try{ var r0=a.CVP_registrarSimulador(dato); RES[id]=JSON.parse(JSON.stringify(r0)); }catch(e){} }
-  else { var r=RES[id]||{mejor:0,intentos:0}; r.ultimo=pct; r.mejor=Math.max(r.mejor,pct); r.intentos++; r.fecha=fechaR; RES[id]=r; lsS('sumas-sim-res',RES); }
+  else { var r=RES[id]||{mejor:0,intentos:0}; r.ultimo=pct; r.mejor=Math.max(r.mejor,pct); r.intentos++; r.fecha=fechaR; RES[id]=r; lsS('sumas-sim-res',RES);
+         aviso('Guardado solo en este navegador: entra desde la Academia para que cuente.'); }
   pintarInicio(); pintarTabs();
 }
 
@@ -718,6 +724,34 @@ var GEN={
 function resumenPres(p){
   return '<div class="tabla-w"><table class="o-tabla"><thead><tr><th>Producto</th><th class="r">Cant.</th><th class="r">Subtotal</th></tr></thead><tbody>'+p.lineas.map(function(l){return '<tr><td>'+esc(l.n)+' <span class="excl">· '+CAT[l.t]+'</span></td><td class="r">'+l.q+'</td><td class="r">'+money(l.q*l.p)+'</td></tr>';}).join('')+'</tbody></table></div>';
 }
+
+/* ======================= avance fuera de la Academia ======================= */
+// Si el simulador se abrió solo (sin la Academia), las misiones quedan únicamente en este navegador.
+// 1) Se avisa con una franja para que la persona entre por la Academia.
+// 2) Cuando lo vuelve a abrir desde la Academia en el mismo navegador, las misiones guardadas aquí
+//    que la Academia no tiene (o tiene con nota menor) se suben solas con su mejor nota.
+(function(){
+  var a=ACAD();
+  if(!a){
+    var b=D.createElement('div'); b.className='fuera'; b.setAttribute('role','alert');
+    b.innerHTML='<b>⚠️ Estás usando el simulador fuera de la Academia CV+.</b> Tus misiones solo quedan en este navegador y <b>no le llegan a Capacitación</b>. Para que cuenten, entra a la Academia (desde Odoo) → módulo <b>SUMÁS</b> → <b>Simulador</b>. Si ya hiciste misiones aquí, se subirán solas la próxima vez que abras el simulador desde la Academia en este mismo equipo.';
+    var fr=D.querySelector('.franja'); if(fr&&fr.parentNode) fr.parentNode.insertBefore(b,fr.nextSibling); else D.body.insertBefore(b,D.body.firstChild);
+    return;
+  }
+  var loc=lsG('sumas-sim-res'); if(!loc) return;
+  var subidas=0;
+  MIS.forEach(function(m){
+    var l=loc[m.id], r=RES[m.id];
+    if(!l||!(l.mejor>0)||(r&&(r.mejor||0)>=l.mejor)) return;
+    try{
+      var r0=a.CVP_registrarSimulador({tipo:'sumas-simulador',mision:m.id,nota:l.mejor,aciertos:l.mejor,total:100,
+        fecha:l.fecha||new Date().toISOString(),recuperado:true,intentosPrevios:l.intentos||1});
+      if(r0) RES[m.id]=JSON.parse(JSON.stringify(r0));
+      subidas++;
+    }catch(e){}
+  });
+  if(subidas) setTimeout(function(){ aviso('Se subió a la Academia tu avance guardado en este navegador ('+subidas+' misión'+(subidas>1?'es':'')+').'); },400);
+})();
 
 /* ======================= arranque ======================= */
 pintarTabs(); pintarInicio(); pintarEti(); pintarInt(); pintarTra(); pintarTyc(); irA(0);
