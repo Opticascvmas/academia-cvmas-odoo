@@ -3905,12 +3905,17 @@ async function saveProgress(p) {
         progress: p,
         sumas: window.SUMAS_AV || {}
       });
+      return true;
 
     }
+    window.__cvpUltimoErrorSumas = 'firebase-no-listo';
+    return false;
 
   } catch(e) {
 
     console.error(e);
+    window.__cvpUltimoErrorSumas = (e && (e.code || e.message)) || 'error';
+    return false;
 
   }
 
@@ -4053,6 +4058,9 @@ window.hydrateUserData = async function() {
     const progressDoc = await window.loadUserData("progress");
     PROGRESS = (progressDoc && progressDoc.progress) ? progressDoc.progress : {};
     window.SUMAS_AV = (progressDoc && progressDoc.sumas) ? progressDoc.sumas : {};
+    // Avance de SUMÁS que quedó en este dispositivo sin llegar a Firebase (solo de esta misma cuenta)
+    var sumasRecuperado = false;
+    try { if (window.cvpRecuperarSumasLocal) sumasRecuperado = window.cvpRecuperarSumasLocal(); } catch(e) { console.error(e); }
     // Excepción de Capacitación: se marcan como vistos los 7 videos y los 10 procesos de la guía
     if (window.CVP_EXCEPCION_SUMAS) {
       var av = window.SUMAS_AV; av.v = av.v || {}; av.vd = av.vd || {}; av.g = av.g || {};
@@ -4062,6 +4070,9 @@ window.hydrateUserData = async function() {
       if (faltaba) { av.porExcepcion = new Date().toISOString(); try { await saveProgress(PROGRESS); } catch(e) { console.error(e); } }
     }
     localStorage.setItem('cvplus_sumas_avance', JSON.stringify(window.SUMAS_AV));
+    if (sumasRecuperado && window.cvpGuardarSumasAhora) {
+      try { await window.cvpGuardarSumasAhora(); } catch(e) { console.error(e); }
+    }
 
     // Notas que no se pudieron guardar antes en este dispositivo: se reenvían ahora
     try { if (window.cvpReintentarPendientes) await window.cvpReintentarPendientes(); } catch(e) { console.error(e); }
@@ -5915,6 +5926,8 @@ Cerrar
   // Avance por usuario: { v:{v1:[escenas vistas]}, vd:{v1:true}, g:{p1:true} }
   // Se guarda en Firestore dentro del documento progress/{uid} (campo «sumas»).
   try { window.SUMAS_AV = JSON.parse(localStorage.getItem('cvplus_sumas_avance') || '{}'); } catch(e) { window.SUMAS_AV = {}; }
+  // Antes de que se cargue la cuenta: de quién era el avance que quedó en este navegador
+  try { window.__cvpSumasPrevio = { email: String((JSON.parse(localStorage.getItem('cvplus_user') || '{}').email) || '').toLowerCase(), datos: JSON.parse(JSON.stringify(window.SUMAS_AV || {})) }; } catch(e) { window.__cvpSumasPrevio = null; }
   function AV(){ var a = window.SUMAS_AV || (window.SUMAS_AV = {}); a.v = a.v || {}; a.vd = a.vd || {}; a.g = a.g || {}; return a; }
   // Cada escena o proceso completado se guarda AL INSTANTE (navegador + Firebase)
   var pendiente = null;
@@ -5922,17 +5935,80 @@ Cerrar
   // (como máximo cada 20 s, y siempre al cerrar sesión o salir) para no gastar
   // el límite diario de guardados de Firebase.
   var temporizador = null;
-  function enviar(){ temporizador = null; try { pendiente = Promise.resolve(saveProgress(PROGRESS)); } catch(e) { pendiente = null; } return pendiente; }
+  function enviar(){ temporizador = null; return window.cvpGuardarSumasAhora(); }
   function guardar(){
     try { localStorage.setItem('cvplus_sumas_avance', JSON.stringify(window.SUMAS_AV)); } catch(e) {}
     if (!temporizador) temporizador = setTimeout(enviar, 20000);
     return pendiente;
   }
   // Se llama antes de cerrar sesión (manual o por inactividad) para no perder lo último
+  // Devuelve true si llegó a Firebase. Si no llega tras 3 intentos, el avance se respalda en este
+  // dispositivo a nombre de la cuenta (cvplus_sumas_pend) y se envía solo la próxima vez que esa
+  // persona entre. Antes fallaba en silencio: la persona veía su avance, pero no llegaba al panel.
+  function correoActual(){ try { return String((window.auth && window.auth.currentUser && window.auth.currentUser.email) || '').toLowerCase(); } catch(e) { return ''; } }
+  function leerPendSumas(){ try { return JSON.parse(localStorage.getItem('cvplus_sumas_pend') || '{}') || {}; } catch(e) { return {}; } }
+  function escribirPendSumas(x){ try { if (Object.keys(x).length) localStorage.setItem('cvplus_sumas_pend', JSON.stringify(x)); else localStorage.removeItem('cvplus_sumas_pend'); } catch(e) {} }
+  var avisado = false;
+  function avisoSumas(){
+    if (avisado) return; avisado = true;
+    try {
+      var d = document.createElement('div');
+      d.setAttribute('role', 'alert');
+      d.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:99999;max-width:min(560px,calc(100% - 24px));background:#fff6dd;color:#5c4400;border:2px solid #ffc629;border-radius:14px;padding:12px 16px;font:13.5px/1.45 Poppins,Segoe UI,Arial,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.18)';
+      d.innerHTML = '<b>⚠️ Tu avance de SUMÁS no se pudo enviar todavía.</b> Quedó guardado en este dispositivo y se enviará solo la próxima vez que entres con tu usuario. Revisa tu internet y no borres los datos del navegador. <small style="opacity:.7">(código: ' + String(window.__cvpUltimoErrorSumas || 'sin código').replace(/[<>&"]/g, '') + ')</small> <button type="button" style="margin-left:6px;border:0;background:#373a36;color:#fff;border-radius:8px;padding:3px 10px;cursor:pointer">Entendido</button>';
+      d.querySelector('button').onclick = function(){ d.remove(); };
+      document.body.appendChild(d);
+      setTimeout(function(){ try { d.remove(); } catch(e) {} }, 20000);
+    } catch(e) {}
+  }
   window.cvpGuardarSumasAhora = function(){
     if (temporizador) { clearTimeout(temporizador); temporizador = null; }
     var esp = pendiente || Promise.resolve();
-    return esp.then(function(){ return saveProgress(PROGRESS); }).catch(function(){});
+    pendiente = esp.catch(function(){}).then(async function(){
+      var ok = false;
+      for (var i = 0; i < 3 && !ok; i++) {
+        if (i) await new Promise(function(r){ setTimeout(r, 2000 * i); });
+        ok = await saveProgress(PROGRESS);
+      }
+      var em = correoActual();
+      if (em) {
+        var x = leerPendSumas();
+        if (ok) { if (x[em]) { delete x[em]; escribirPendSumas(x); } }
+        else { x[em] = { datos: window.SUMAS_AV || {}, at: new Date().toISOString() }; escribirPendSumas(x); }
+      }
+      if (!ok) avisoSumas();
+      return ok;
+    });
+    return pendiente;
+  };
+  // Une dos avances de SUMÁS sin perder nada (videos, guía, misiones y uso del simulador)
+  function unirSumas(base, extra){
+    base = base || {}; extra = extra || {};
+    ['vd', 'g'].forEach(function(k){ if (extra[k]) { base[k] = base[k] || {}; Object.keys(extra[k]).forEach(function(x){ if (extra[k][x]) base[k][x] = true; }); } });
+    if (extra.v) { base.v = base.v || {}; Object.keys(extra.v).forEach(function(x){ var a = (base.v[x] || []).slice(); (extra.v[x] || []).forEach(function(e){ if (a.indexOf(e) === -1) a.push(e); }); base.v[x] = a; }); }
+    if (extra.sim) { base.sim = base.sim || {}; Object.keys(extra.sim).forEach(function(m){
+      var a = base.sim[m], b = extra.sim[m]; if (!b) return; if (!a) { base.sim[m] = b; return; }
+      var bNuevo = String(b.fecha || '') > String(a.fecha || '');
+      base.sim[m] = { mejor: Math.max(a.mejor || 0, b.mejor || 0), intentos: Math.max(a.intentos || 0, b.intentos || 0),
+                      ultimo: bNuevo ? b.ultimo : a.ultimo, fecha: bNuevo ? b.fecha : a.fecha };
+    }); }
+    if (extra.simUso) { var a = base.simUso = base.simUso || {}, b = extra.simUso;
+      a.ap = Math.max(a.ap || 0, b.ap || 0); a.s = Math.max(a.s || 0, b.s || 0);
+      if (b.pri && (!a.pri || b.pri < a.pri)) a.pri = b.pri; if (b.ult && (!a.ult || b.ult > a.ult)) a.ult = b.ult;
+      a.p = a.p || {}; Object.keys(b.p || {}).forEach(function(m){ var x = a.p[m] || { n: 0, ok: 0 }, y = b.p[m] || {}; a.p[m] = { n: Math.max(x.n || 0, y.n || 0), ok: Math.max(x.ok || 0, y.ok || 0) }; });
+    }
+    return base;
+  }
+  // Se llama al entrar (hydrateUserData), justo después de leer el avance de Firebase.
+  // Une lo que quedó en este dispositivo SOLO si es de la misma cuenta. Devuelve true si agregó algo.
+  window.cvpRecuperarSumasLocal = function(){
+    var em = correoActual(); if (!em) return false;
+    var antes = JSON.stringify(window.SUMAS_AV || {});
+    var prev = window.__cvpSumasPrevio; window.__cvpSumasPrevio = null;
+    if (prev && prev.email === em && prev.datos) window.SUMAS_AV = unirSumas(window.SUMAS_AV, prev.datos);
+    var x = leerPendSumas();
+    if (x[em] && x[em].datos) window.SUMAS_AV = unirSumas(window.SUMAS_AV, x[em].datos);
+    return JSON.stringify(window.SUMAS_AV) !== antes;
   };
   function rolLibre(){
     try { var r = (JSON.parse(localStorage.getItem('cvplus_user') || '{}').role) || ''; return r === 'admin' || r === 'admin_opto' || r === 'viewer'; } catch(e) { return false; }
