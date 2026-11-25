@@ -1704,15 +1704,28 @@ window.cvpReporteDireccion = function () {
 
 /* ---------- USUARIOS ---------- */
 function renderUsers(d) {
-  if (!CVP.uf) CVP.uf = { q: "", sucs: [], pos: "", status: "", date: "" };
+  if (!CVP.uf) CVP.uf = { q: "", sucs: [], pos: "", status: "", date: "", area: "", grp: "" };
   CVX_SEL.cvpFilterBranch = { get: () => CVP.uf.sucs, set: l => { CVP.uf.sucs = l; if (window.cvxAplicarFiltrosUsuarios) window.cvxAplicarFiltrosUsuarios(); } };
   const branches  = [...new Set(d.enriched.map(u => u.branch))].sort();
   const positions = [...new Set(d.enriched.map(u => u.position))].sort();
+  // Áreas presentes en esta vista (Zona 1, 2, 3, Ventas, RRHH, Compras…) en el orden de ZONAS
+  const areas = [...new Set(d.enriched.map(u => u.zona))]
+    .sort((a, b) => cvxOrdenZona(a) - cvxOrdenZona(b) || a.localeCompare(b, 'es'));
 
   const filters = `
     <div class="cvp-filters">
       <input id="cvpSearch" placeholder="🔍 Buscar por nombre o correo…">
+      <select id="cvpFilterArea" title="Filtrar por área">
+        <option value="">Todas las áreas</option>
+        ${areas.map(a => `<option value="${esc(a)}">${esc(a)}</option>`).join("")}
+      </select>
       ${cvxSelHTML('cvpFilterBranch', CVP.uf.sucs, branches)}
+      <select id="cvpGroupBy" title="Agrupar las tarjetas">
+        <option value="">Sin agrupar</option>
+        <option value="area">Agrupar por área</option>
+        <option value="area-suc">Agrupar por área y sucursal</option>
+        <option value="suc">Agrupar por sucursal</option>
+      </select>
       <select id="cvpFilterPos">
         <option value="">Todos los cargos</option>
         ${positions.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join("")}
@@ -1809,6 +1822,9 @@ function renderUserCard(u) {
        data-name="${esc(u.name).toLowerCase()}"
        data-email="${esc(u.email).toLowerCase()}"
        data-branch="${esc(u.branch)}"
+       data-zona="${esc(u.zona)}"
+       data-avg="${u.avg || 0}"
+       data-quizzes="${u.totalQuizzes || 0}"
        data-position="${esc(u.position)}"
        data-status="${u.status}"
        data-login="${u.lastLogin ? esc(u.lastLogin) : ''}">
@@ -2584,6 +2600,8 @@ function wireUpUserFilters() {
   const fPos = document.getElementById("cvpFilterPos");
   const fStatus = document.getElementById("cvpFilterStatus");
   const fDate = document.getElementById("cvpFilterDate");
+  const fArea = document.getElementById("cvpFilterArea");
+  const fGrp = document.getElementById("cvpGroupBy");
   if (!search) return;
 
   // ¿El login de la tarjeta cae dentro del rango de fecha elegido?
@@ -2602,16 +2620,78 @@ function wireUpUserFilters() {
   };
 
   // Restaurar los filtros guardados (no se pierden al cambiar de vista ni al redibujar)
-  const uf = CVP.uf || (CVP.uf = { q: "", sucs: [], pos: "", status: "", date: "" });
+  const uf = CVP.uf || (CVP.uf = { q: "", sucs: [], pos: "", status: "", date: "", area: "", grp: "" });
+  if (!uf.colap) uf.colap = [];   // grupos colapsados (se conservan al redibujar)
   const poner = (el, v) => {
     if (!el || !v) return;
     if (el.tagName === "SELECT" && ![...el.options].some(o => o.value === v)) el.add(new Option(v + " (sin personas en esta vista)", v));
     el.value = v;
   };
   search.value = uf.q || ""; poner(fPos, uf.pos); poner(fStatus, uf.status); poner(fDate, uf.date);
+  poner(fArea, uf.area); if (fGrp) fGrp.value = uf.grp || "";
+
+  // Guarda el orden original de las tarjetas (por promedio) para poder volver a "Sin agrupar"
+  const lista = document.getElementById("cvpUserList");
+  const tarjetas = lista ? [...lista.querySelectorAll(".cvp-user-card")] : [];
+  tarjetas.forEach((c, i) => { c.dataset.idx = i; });
+
+  // Reacomoda las tarjetas visibles en grupos con un encabezado por grupo
+  const agrupar = (modo) => {
+    if (!lista) return;
+    lista.querySelectorAll(".cvx-ugrp").forEach(h => h.remove());
+    const visibles = tarjetas.filter(c => c.style.display !== "none");
+    const ocultas  = tarjetas.filter(c => c.style.display === "none");
+    if (!modo) { tarjetas.forEach(c => lista.appendChild(c)); return; }
+    const clave = c => modo === "area" ? c.dataset.zona
+      : modo === "suc" ? c.dataset.branch
+      : c.dataset.zona + " › " + c.dataset.branch;
+    const orden = (a, b) => {
+      if (modo !== "suc") {
+        const z = cvxOrdenZona(a.dataset.zona) - cvxOrdenZona(b.dataset.zona) || a.dataset.zona.localeCompare(b.dataset.zona, "es");
+        if (z) return z;
+      }
+      if (modo !== "area") {
+        const s = a.dataset.branch.localeCompare(b.dataset.branch, "es");
+        if (s) return s;
+      }
+      return a.dataset.idx - b.dataset.idx;
+    };
+    visibles.sort(orden);
+    const grupos = [];
+    visibles.forEach(c => {
+      const k = clave(c);
+      if (!grupos.length || grupos[grupos.length - 1].k !== k) grupos.push({ k, cards: [] });
+      grupos[grupos.length - 1].cards.push(c);
+    });
+    grupos.forEach(g => {
+      const conNota = g.cards.filter(c => +c.dataset.quizzes > 0);
+      const prom = conNota.length ? Math.round(conNota.reduce((t, c) => t + (+c.dataset.avg || 0), 0) / conNota.length) : null;
+      const cerrado = uf.colap.includes(modo + "|" + g.k);
+      const c0 = g.cards[0];
+      const titulo = modo === "area" ? `<b>${esc(g.k)}</b>`
+        : modo === "suc" ? `<b>${esc(c0.dataset.branch)}</b><small>${esc(c0.dataset.zona)}</small>`
+        : cvxNorm(c0.dataset.zona) === cvxNorm(c0.dataset.branch) ? `<b>${esc(c0.dataset.zona)}</b>`
+        : `${esc(c0.dataset.zona)} · <b>${esc(c0.dataset.branch)}</b>`;
+      const h = document.createElement("div");
+      h.className = "cvx-ugrp" + (cerrado ? " cerrado" : "");
+      h.dataset.k = modo + "|" + g.k;
+      h.innerHTML = `<span class="cvx-ugrp-t"><span class="cvx-ugrp-chev">${cerrado ? "▸" : "▾"}</span> ${titulo}</span>
+        <span class="cvx-ugrp-m">${g.cards.length} ${g.cards.length === 1 ? "persona" : "personas"}${prom == null ? "" : ` · Promedio <b>${prom}%</b>`}</span>`;
+      h.onclick = () => {
+        const i = uf.colap.indexOf(h.dataset.k);
+        if (i === -1) uf.colap.push(h.dataset.k); else uf.colap.splice(i, 1);
+        apply();
+      };
+      lista.appendChild(h);
+      g.cards.forEach(c => { if (cerrado) c.style.display = "none"; lista.appendChild(c); });
+    });
+    ocultas.forEach(c => lista.appendChild(c));
+  };
 
   const apply = () => {
     uf.q = search.value; uf.pos = fPos.value; uf.status = fStatus.value; uf.date = fDate ? fDate.value : "";
+    uf.area = fArea ? fArea.value : ""; uf.grp = fGrp ? fGrp.value : "";
+    const ar = uf.area;
     const q = search.value.toLowerCase().trim();
     const p = fPos.value, s = fStatus.value;
     const dt = fDate ? fDate.value : "";
@@ -2619,13 +2699,15 @@ function wireUpUserFilters() {
     document.querySelectorAll("#cvpUserList .cvp-user-card").forEach(card => {
       const okText = !q || card.dataset.name.includes(q) || card.dataset.email.includes(q);
       const okB = !sucs.length || sucs.includes(card.dataset.branch);
+      const okA = !ar || card.dataset.zona === ar;
       const okP = !p || card.dataset.position === p;
       const okS = !s || card.dataset.status === s;
       const okD = matchesDate(card.dataset.login, dt);
-      card.style.display = (okText && okB && okP && okS && okD) ? "" : "none";
+      card.style.display = (okText && okB && okA && okP && okS && okD) ? "" : "none";
     });
+    agrupar(uf.grp);
   };
-  [search, fPos, fStatus, fDate].forEach(el => {
+  [search, fPos, fStatus, fDate, fArea, fGrp].forEach(el => {
     if (!el) return;
     el.addEventListener("input", apply);
     el.addEventListener("change", apply);
@@ -3464,6 +3546,17 @@ function injectStyles() {
 .cvx-mx tbody tr.cvx-mx-grupo td span{position:sticky;left:12px;display:inline-block;font-size:12px;color:#6b6e6a;padding-left:12px}
 .cvx-mx tbody tr.cvx-mx-grupo td b{color:#00abc8}
 .cvx-zchip{display:block;font-size:11px;color:#6b6e6a}
+/* Usuarios: encabezados de grupo (por área / sucursal) */
+.cvx-ugrp{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
+  background:#e5f6f9;border-left:5px solid #00abc8;border-radius:12px;padding:10px 16px;margin-top:6px;
+  cursor:pointer;user-select:none;font-size:14px;color:#373a36}
+.cvx-ugrp:hover{background:#d6f1f6}
+.cvx-ugrp.cerrado{background:#f4f7f8;border-left-color:#ffc629}
+.cvx-ugrp-t b{font-weight:800}
+.cvx-ugrp-t small{margin-left:8px;font-size:12px;color:#6b6e6a;font-weight:600}
+.cvx-ugrp-chev{display:inline-block;width:14px;color:#00abc8}
+.cvx-ugrp-m{font-size:13px;color:#6b6e6a}
+.cvx-ugrp-m b{color:#00abc8}
 .cvx-chip.neutro{background:#f4f7f8;color:#6b6e6a}
 .cvx-sino-acc{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .cvx-exc{display:block;margin-top:6px;border:1px solid #00abc8;background:#fff;color:#00abc8;border-radius:999px;padding:3px 10px;font:inherit;font-size:11.5px;font-weight:600;cursor:pointer}
