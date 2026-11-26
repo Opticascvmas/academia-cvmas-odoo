@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Recuperar notas · Simulador SUMÁS · Academia CV+</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --cyan:#00abc8; --cyan-d:#008aa3; --gold:#ffc629; --carbon:#373a36;
+  --bg:#f4f7f9; --card:#fff; --line:#dde5ea; --muted:#6b7780;
+  --ok:#1e9e5a; --warn:#d98a00; --err:#d0392b;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Poppins,system-ui,sans-serif;background:var(--bg);color:var(--carbon);font-size:14px}
+header{background:var(--carbon);color:#fff;padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;border-bottom:4px solid var(--gold)}
+header img{height:34px;background:#fff;border-radius:6px;padding:3px 6px}
+header h1{font-size:18px;margin:0;font-weight:600}
+header .sp{flex:1}
+header .who{font-size:12px;opacity:.85}
+main{max-width:1100px;margin:0 auto;padding:20px 16px 60px}
+.card{background:var(--card);border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.05);padding:20px;margin-bottom:18px}
+.card h2{margin:0 0 4px;font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px}
+.card h2 .n{background:var(--cyan);color:#fff;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;flex:0 0 auto}
+.card p.sub{margin:0 0 14px;color:var(--muted);font-size:13px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+input,select,textarea{font-family:inherit;font-size:13px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--carbon);min-width:0}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--cyan);border-color:transparent}
+button{font-family:inherit;font-size:13px;font-weight:600;border:0;border-radius:8px;padding:9px 16px;cursor:pointer;background:var(--cyan);color:#fff;transition:.15s}
+button:hover{background:var(--cyan-d)}
+button.sec{background:#fff;color:var(--carbon);border:1px solid var(--line)}
+button.sec:hover{border-color:var(--cyan);color:var(--cyan)}
+button.gold{background:var(--gold);color:var(--carbon)}
+button.gold:hover{filter:brightness(.95)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.tabs button{background:#fff;color:var(--muted);border:1px solid var(--line)}
+.tabs button.on{background:var(--cyan);color:#fff;border-color:var(--cyan)}
+.lista{max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:10px;margin-top:10px}
+.u{display:flex;gap:10px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--line);cursor:pointer}
+.u:last-child{border-bottom:0}
+.u:hover{background:#effafc}
+.u.sel{background:#dff6fa;box-shadow:inset 4px 0 0 var(--cyan)}
+.u .nm{font-weight:600}
+.u small{display:block;color:var(--muted);font-size:11.5px}
+.u .br{margin-left:auto;font-size:11.5px;color:var(--muted);text-align:right}
+.elegido{border:2px solid var(--cyan);background:#effafc;border-radius:12px;padding:12px 14px;margin-top:12px}
+.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:640px}
+th{background:#f0f4f6;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);text-align:left;padding:8px 10px}
+td{border-top:1px solid var(--line);padding:8px 10px;vertical-align:middle}
+td input[type=number]{width:90px}
+.badge{display:inline-block;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;white-space:nowrap}
+.b-gr{background:#eef3f6;color:var(--muted)} .b-ok{background:#e3f5eb;color:var(--ok)}
+.b-warn{background:#fff3d6;color:#9a6500} .b-err{background:#fbe7e5;color:var(--err)}
+.b-rec{background:#efe6fb;color:#6a3fb5}
+.aviso{font-size:11.5px;margin-top:3px}
+.aviso.w{color:#9a6500} .aviso.e{color:var(--err)}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:22px;text-align:center;color:var(--muted);cursor:pointer;transition:.15s}
+.drop.over,.drop:hover{border-color:var(--cyan);background:#effafc;color:var(--cyan-d)}
+.drop b{color:var(--carbon)}
+.prev{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-top:12px}
+.prev img{max-width:260px;max-height:320px;border-radius:10px;border:1px solid var(--line);box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.note{background:#fffaf0;border-left:4px solid var(--gold);padding:10px 12px;border-radius:6px;font-size:12.5px;color:#5a4a1c}
+.msg{font-size:12.5px;margin-top:8px}
+.msg.e{color:var(--err)} .msg.ok{color:var(--ok)}
+.login{max-width:380px;margin:40px auto}
+.login input{width:100%;margin-bottom:10px}
+.hide{display:none!important}
+.hist td{font-size:13px}
+.modal{position:fixed;inset:0;background:rgba(55,58,54,.75);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+.modal .box{background:#fff;border-radius:14px;max-width:min(900px,100%);max-height:92vh;overflow:auto;padding:16px}
+.modal img{max-width:100%;display:block;border-radius:8px}
+.modal .top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+@media (max-width:640px){header h1{font-size:15px}.card{padding:14px}.u .br{display:none}}
+</style>
+</head>
+<body>
+<header>
+  <img src="../logo-cvplus.svg" alt="CV+" onerror="this.style.display='none'">
+  <h1>Recuperar notas · Simulador SUMÁS</h1>
+  <span class="sp"></span>
+  <span class="who" id="who"></span>
+  <button class="sec hide" id="btnLogout" style="padding:6px 12px">Salir</button>
+</header>
+
+<main>
+  <!-- LOGIN -->
+  <section class="card login hide" id="secLogin">
+    <h2>🔐 Acceso de administrador</h2>
+    <p class="sub">Solo los administradores de la Academia pueden recuperar notas.</p>
+    <input type="email" id="lgEmail" placeholder="Correo de administrador" autocomplete="username">
+    <input type="password" id="lgPass" placeholder="Contraseña" autocomplete="current-password">
+    <button id="btnLogin" style="width:100%">Entrar</button>
+    <div class="msg e" id="lgMsg"></div>
+  </section>
+
+  <div id="app" class="hide">
+    <div class="tabs">
+      <button class="on" data-tab="nueva">➕ Nueva recuperación</button>
+      <button data-tab="hist">🗂️ Historial</button>
+    </div>
+
+    <!-- ═══ NUEVA ═══ -->
+    <div id="t-nueva">
+      <section class="card">
+        <h2><span class="n">1</span> Colaborador</h2>
+        <p class="sub">Busca a la persona que te envió la captura.</p>
+        <div class="row">
+          <input id="buscar" placeholder="Buscar por nombre o correo" style="flex:1 1 260px">
+          <select id="fSucursal" style="flex:0 1 220px"><option value="">Todas las sucursales</option></select>
+        </div>
+        <div class="lista" id="lista"><div class="u" style="cursor:default;color:var(--muted)">Cargando usuarios…</div></div>
+        <div class="elegido hide" id="elegido"></div>
+      </section>
+
+      <section class="card">
+        <h2><span class="n">2</span> Notas que aparecen en la captura</h2>
+        <p class="sub">Escribe solo las misiones que se ven en la captura. Deja vacías las demás.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Misión</th><th>Nota actual en la Academia</th><th>Nota de la captura</th><th>Fecha en que la hizo</th></tr></thead>
+            <tbody id="tbMis"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2><span class="n">3</span> Evidencia (obligatoria)</h2>
+        <p class="sub">Sube la foto o captura que te envió. También puedes pegarla con <b>Ctrl + V</b>. Se comprime antes de guardarse.</p>
+        <div class="drop" id="drop">
+          <div style="font-size:28px">📸</div>
+          <div><b>Arrastra la imagen aquí</b> o haz clic para seleccionarla (JPG o PNG)</div>
+          <input type="file" id="file" accept="image/*" class="hide">
+        </div>
+        <div class="prev hide" id="prev">
+          <img id="prevImg" alt="Evidencia">
+          <div>
+            <div id="prevInfo" style="font-size:12.5px;color:var(--muted)"></div>
+            <button class="sec" id="btnQuitar" style="margin-top:8px">Quitar imagen</button>
+          </div>
+        </div>
+        <div class="row" style="margin-top:14px">
+          <textarea id="motivo" rows="2" style="flex:1 1 100%" placeholder="Comentario (opcional)">Hizo el simulador sin iniciar sesión (abrió el link directo desde Odoo).</textarea>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2><span class="n">4</span> Guardar</h2>
+        <div id="resumen" class="note">Completa los pasos 1, 2 y 3 para poder guardar.</div>
+        <div class="row" style="margin-top:12px">
+          <button class="gold" id="btnGuardar" disabled>💾 Recuperar nota</button>
+        </div>
+        <div class="msg" id="gMsg"></div>
+      </section>
+    </div>
+
+    <!-- ═══ HISTORIAL ═══ -->
+    <div id="t-hist" class="hide">
+      <section class="card">
+        <h2>🗂️ Notas recuperadas</h2>
+        <p class="sub">Cada recuperación queda con su evidencia, quién la hizo y cuándo.</p>
+        <div class="tablewrap hist">
+          <table>
+            <thead><tr><th>Fecha</th><th>Colaborador</th><th>Sucursal</th><th>Misiones</th><th>Recuperó</th><th></th></tr></thead>
+            <tbody id="tbHist"><tr><td colspan="6" style="color:var(--muted)">Cargando…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<div class="modal hide" id="modal">
+  <div class="box">
+    <div class="top"><b id="modalT">Evidencia</b><button class="sec" id="modalX">✕ Cerrar</button></div>
+    <div id="modalB"></div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+
+/* ───── Configuración (la misma de index.html) ───── */
+const firebaseConfig = {
+  apiKey: "AIzaSyBoZ1CcQVNhqCNIfn2k4y6YA9Dt3cm4a0o",
+  authDomain: "cvmas-academia.firebaseapp.com",
+  projectId: "cvmas-academia",
+  storageBucket: "cvmas-academia.firebasestorage.app",
+  messagingSenderId: "187622570860",
+  appId: "1:187622570860:web:2d1b6410db3838e1fc1149"
+};
+const ADMIN_EMAILS = ["oskarmchdo@gmail.com","alevargas93@hotmail.com","adal.velasquez@index-7.com"];
+const MISIONES = [
+  ["afi","Afiliación"], ["eti","Etiquetas 1 y 2"], ["tra","Puntos y tramos"], ["tyc","Términos y condiciones"]
+];
+const APRUEBA = 80;
+// Dónde se guarda la evidencia. Si las reglas de Firebase no permiten la colección nueva,
+// se usa admin_logs (que el panel de admin ya usa).
+const COLECCIONES = ["recuperaciones_notas", "admin_logs"];
+const MAX_IMG_CHARS = 700000;   // ~520 KB de imagen; el límite de un documento de Firestore es 1 MB
+
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const norm = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().trim();
+const hoyISO = () => new Date().toLocaleDateString("sv-SE",{timeZone:"America/El_Salvador"});
+const fmt = d => { try { return new Date(d).toLocaleString("es-SV",{timeZone:"America/El_Salvador",dateStyle:"short",timeStyle:"short"}); } catch(e){ return ""; } };
+const fmtDia = d => { try { return new Date(d).toLocaleDateString("es-SV",{timeZone:"America/El_Salvador"}); } catch(e){ return ""; } };
+function friendly(e){
+  const c = e?.code || "";
+  return ({
+    "auth/invalid-credential":"Correo o contraseña incorrectos",
+    "auth/network-request-failed":"Sin conexión",
+    "permission-denied":"Firebase rechazó la operación (reglas de seguridad)",
+    "unavailable":"Sin conexión con Firebase"
+  })[c] || (e?.message || String(e));
+}
+
+/* ───── Estado ───── */
+let USERS = [], elegido = null, simActual = {}, evidencia = null, guardando = false;
+
+/* ───── Login ───── */
+onAuthStateChanged(auth, user => {
+  if (user && ADMIN_EMAILS.includes((user.email||"").toLowerCase())) {
+    $("secLogin").classList.add("hide"); $("app").classList.remove("hide");
+    $("who").textContent = "👤 " + user.email; $("btnLogout").classList.remove("hide");
+    cargarUsuarios();
+  } else {
+    $("app").classList.add("hide"); $("secLogin").classList.remove("hide");
+    $("btnLogout").classList.add("hide"); $("who").textContent = "";
+    if (user) $("lgMsg").textContent = "Esta cuenta no tiene permisos de administrador para esta herramienta.";
+  }
+});
+$("btnLogin").onclick = async () => {
+  $("lgMsg").textContent = "";
+  try { await signInWithEmailAndPassword(auth, $("lgEmail").value.trim(), $("lgPass").value); }
+  catch(e){ $("lgMsg").textContent = "No se pudo entrar: " + friendly(e); }
+};
+$("lgPass").addEventListener("keydown", e => { if (e.key === "Enter") $("btnLogin").click(); });
+$("btnLogout").onclick = () => signOut(auth);
+
+/* ───── Pestañas ───── */
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("on", x === b));
+  $("t-nueva").classList.toggle("hide", b.dataset.tab !== "nueva");
+  $("t-hist").classList.toggle("hide", b.dataset.tab !== "hist");
+  if (b.dataset.tab === "hist") cargarHistorial();
+});
+
+/* ───── 1. Usuarios ───── */
+async function cargarUsuarios(){
+  try {
+    const snap = await getDocs(collection(db, "users"));
+    USERS = [];
+    snap.forEach(d => { const u = d.data() || {}; USERS.push({ uid:d.id, name:u.name || "", email:String(u.email||"").toLowerCase(), branch:u.branch || "", position:u.position || "" }); });
+    USERS.sort((a,b) => (a.name || a.email).localeCompare(b.name || b.email, "es"));
+    const brs = [...new Set(USERS.map(u => u.branch).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"es"));
+    $("fSucursal").innerHTML = `<option value="">Todas las sucursales</option>` + brs.map(b => `<option>${esc(b)}</option>`).join("");
+    pintarLista();
+  } catch(e) {
+    $("lista").innerHTML = `<div class="u" style="cursor:default;color:var(--err)">No se pudieron cargar los usuarios: ${esc(friendly(e))}</div>`;
+  }
+}
+function pintarLista(){
+  const q = norm($("buscar").value), br = $("fSucursal").value;
+  const vis = USERS.filter(u => (!br || u.branch === br) && (!q || norm(u.name).includes(q) || u.email.includes(q))).slice(0, 200);
+  $("lista").innerHTML = vis.map(u => `<div class="u ${elegido && elegido.uid===u.uid ? "sel":""}" data-uid="${esc(u.uid)}">
+      <div><div class="nm">${esc(u.name || "(sin nombre)")}</div><small>${esc(u.email)}</small></div>
+      <div class="br">${esc(u.branch)}<br>${esc(u.position)}</div></div>`).join("")
+    || `<div class="u" style="cursor:default;color:var(--muted)">No hay coincidencias.</div>`;
+}
+$("buscar").oninput = pintarLista;
+$("fSucursal").onchange = pintarLista;
+$("lista").onclick = async e => {
+  const el = e.target.closest("[data-uid]"); if (!el || guardando) return;
+  elegido = USERS.find(u => u.uid === el.dataset.uid); simActual = {};
+  pintarLista();
+  $("elegido").classList.remove("hide");
+  $("elegido").innerHTML = `<b>${esc(elegido.name || elegido.email)}</b> · ${esc(elegido.email)} · ${esc(elegido.branch || "sin sucursal")}<div style="font-size:12px;color:var(--muted)">Leyendo sus notas actuales…</div>`;
+  pintarMisiones();
+  try {
+    const p = await getDoc(doc(db, "progress", elegido.uid));
+    simActual = (p.exists() && p.data().sumas && p.data().sumas.sim) || {};
+    $("elegido").innerHTML = `<b>${esc(elegido.name || elegido.email)}</b> · ${esc(elegido.email)} · ${esc(elegido.branch || "sin sucursal")}`;
+  } catch(err) {
+    $("elegido").innerHTML += `<div class="aviso e">No se pudieron leer sus notas actuales (${esc(friendly(err))}).</div>`;
+  }
+  pintarMisiones();
+};
+
+/* ───── 2. Misiones ───── */
+function pintarMisiones(){
+  const val = {}; document.querySelectorAll("#tbMis [data-m]").forEach(i => val[i.dataset.m + i.dataset.k] = i.value);
+  $("tbMis").innerHTML = MISIONES.map(([id, nom]) => {
+    const r = simActual[id];
+    let actual = `<span class="badge b-gr">Sin intentar</span>`;
+    if (r && r.mejor > 0) actual = `<span class="badge ${r.mejor >= APRUEBA ? "b-ok" : "b-warn"}">${r.mejor} %</span>` +
+      (r.recuperada ? ` <span class="badge b-rec">Recuperada</span>` : "") +
+      `<div class="aviso" style="color:var(--muted)">${r.intentos || 0} intento(s) · ${esc(fmtDia(r.fecha))}</div>`;
+    return `<tr><td><b>${nom}</b></td><td>${actual}</td>
+      <td><input type="number" min="0" max="100" step="1" placeholder="%" data-m="${id}" data-k="n" value="${esc(val[id+"n"] ?? "")}"><div class="aviso" id="av-${id}"></div></td>
+      <td><input type="date" data-m="${id}" data-k="f" max="${hoyISO()}" value="${esc(val[id+"f"] ?? "")}"></td></tr>`;
+  }).join("");
+  revisar();
+}
+$("tbMis").addEventListener("input", revisar);
+
+// Qué se va a guardar: misiones con nota válida, cuáles se aplican y cuáles no
+function plan(){
+  const out = [];
+  for (const [id, nom] of MISIONES) {
+    const inp = document.querySelector(`#tbMis [data-m="${id}"][data-k="n"]`);
+    const fec = document.querySelector(`#tbMis [data-m="${id}"][data-k="f"]`);
+    const raw = inp ? inp.value.trim() : "";
+    const av = $("av-" + id); if (av) { av.textContent = ""; av.className = "aviso"; }
+    if (raw === "") continue;
+    const n = Number(raw);
+    if (!Number.isInteger(n) || n < 1 || n > 100) { if (av) { av.textContent = "Escribe un número entero de 1 a 100."; av.className = "aviso e"; } out.push({ id, nom, error:true }); continue; }
+    const r = simActual[id];
+    const previo = (r && r.mejor) || 0;
+    let estado = "nueva";
+    if (previo >= n) { estado = "omitir"; if (av) { av.textContent = `Ya tiene ${previo} % (igual o mayor). No se cambia.`; av.className = "aviso w"; } }
+    else if (previo > 0) { estado = "mejora"; if (av) { av.textContent = `Ya tiene ${previo} %: queda ${n} % como su mejor nota.`; av.className = "aviso w"; } }
+    out.push({ id, nom, nota:n, fecha: fec && fec.value ? fec.value : "", previo, estado });
+  }
+  return out;
+}
+function revisar(){
+  const p = plan();
+  const aplicar = p.filter(x => !x.error && x.estado !== "omitir");
+  const errores = p.some(x => x.error);
+  let txt;
+  if (!elegido) txt = "Completa los pasos 1, 2 y 3 para poder guardar.";
+  else if (!p.length) txt = "Escribe al menos una nota de la captura (paso 2).";
+  else if (errores) txt = "Corrige las notas marcadas en rojo.";
+  else if (!aplicar.length) txt = "Las notas escritas no cambian nada: la persona ya tiene notas iguales o mayores.";
+  else if (!evidencia) txt = "Falta subir la evidencia (paso 3).";
+  else txt = `Se recuperará para <b>${esc(elegido.name || elegido.email)}</b>: ` +
+    aplicar.map(x => `${x.nom} <b>${x.nota} %</b>${x.nota >= APRUEBA ? " ✅" : ""}`).join(" · ") +
+    (p.some(x => x.estado === "omitir") ? `<br><small>Se omiten las misiones donde ya tiene una nota igual o mayor.</small>` : "");
+  $("resumen").innerHTML = txt;
+  $("btnGuardar").disabled = guardando || !elegido || errores || !aplicar.length || !evidencia;
+}
+
+/* ───── 3. Evidencia ───── */
+const drop = $("drop");
+drop.onclick = () => $("file").click();
+drop.ondragover = e => { e.preventDefault(); drop.classList.add("over"); };
+drop.ondragleave = () => drop.classList.remove("over");
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove("over"); const f = e.dataTransfer.files[0]; if (f) leerImagen(f); };
+$("file").onchange = e => { const f = e.target.files[0]; if (f) leerImagen(f); e.target.value = ""; };
+document.addEventListener("paste", e => {
+  if ($("app").classList.contains("hide")) return;
+  const it = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith("image/"));
+  if (it) { e.preventDefault(); leerImagen(it.getAsFile()); }
+});
+$("btnQuitar").onclick = () => { evidencia = null; $("prev").classList.add("hide"); drop.classList.remove("hide"); revisar(); };
+
+function cargarImg(file){
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); res(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("formato")); };
+    img.src = url;
+  });
+}
+async function leerImagen(file){
+  if (!file || !/^image\//.test(file.type || "image/")) return alert("El archivo no es una imagen.");
+  let img;
+  try { img = await cargarImg(file); }
+  catch(e) { return alert("No se pudo abrir la imagen. Si es una foto HEIC de iPhone, envíala como captura o conviértela a JPG."); }
+  // Comprimir: lado mayor 1600 px y calidad JPEG decreciente hasta que quepa
+  let lado = 1600, q = 0.8, data = "";
+  for (let i = 0; i < 8; i++) {
+    const k = Math.min(1, lado / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    const ctx = c.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    data = c.toDataURL("image/jpeg", q);
+    if (data.length <= MAX_IMG_CHARS) break;
+    if (q > 0.5) q -= 0.1; else lado = Math.round(lado * 0.8);
+  }
+  if (data.length > MAX_IMG_CHARS) return alert("La imagen es demasiado grande incluso comprimida. Recórtala e inténtalo de nuevo.");
+  evidencia = { data, nombre: file.name || "captura", kb: Math.round(data.length * 0.75 / 1024) };
+  $("prevImg").src = data;
+  $("prevInfo").innerHTML = `${esc(evidencia.nombre)}<br>Guardada comprimida: ~${evidencia.kb} KB`;
+  $("prev").classList.remove("hide"); drop.classList.add("hide");
+  revisar();
+}
+
+/* ───── 4. Guardar ───── */
+// Guarda en la primera colección que las reglas de Firebase permitan
+async function guardarEnColeccion(id, datos){
+  let ultimo;
+  for (const col of COLECCIONES) {
+    try { await setDoc(doc(db, col, id), datos); return col; }
+    catch(e) { ultimo = e; if (e.code !== "permission-denied") throw e; }
+  }
+  throw ultimo;
+}
+$("btnGuardar").onclick = async () => {
+  const p = plan(), aplicar = p.filter(x => !x.error && x.estado !== "omitir");
+  if (!elegido || !aplicar.length || !evidencia) return;
+  const lineas = aplicar.map(x => `• ${x.nom}: ${x.nota} %` + (x.previo ? ` (antes ${x.previo} %)` : "")).join("\n");
+  if (!confirm(`¿Recuperar estas notas del Simulador SUMÁS para ${elegido.name || elegido.email}?\n\n${lineas}\n\nQuedarán marcadas como "Recuperada" con la evidencia adjunta.`)) return;
+
+  guardando = true; revisar(); $("gMsg").className = "msg"; $("gMsg").textContent = "Guardando…";
+  const admin = (auth.currentUser?.email || "").toLowerCase();
+  const ahora = new Date().toISOString();
+  const id = "rec_" + Date.now() + "_" + elegido.uid.slice(0, 6);
+  try {
+    // 1) Evidencia (documento aparte, para no hacer pesado el progreso del colaborador)
+    const colImg = await guardarEnColeccion(id + "_img", {
+      tipo: "recuperacion_evidencia", registro: id, uid: elegido.uid, imagen: evidencia.data, nombreArchivo: evidencia.nombre, creadoEn: ahora, creadoPor: admin
+    });
+    // 2) Nota en el progreso del colaborador: progress/{uid} → sumas.sim.{mision}
+    //    (merge: solo toca las misiones recuperadas; no borra nada más)
+    const sim = {};
+    for (const x of aplicar) {
+      const r = simActual[x.id] || {};
+      const fechaHecha = x.fecha ? new Date(x.fecha + "T12:00:00-06:00").toISOString() : ahora;
+      sim[x.id] = {
+        mejor: Math.max(r.mejor || 0, x.nota), ultimo: x.nota, intentos: (r.intentos || 0) + 1, fecha: fechaHecha,
+        recuperada: { nota: x.nota, previo: r.mejor || 0, por: admin, en: ahora, registro: id, evidencia: colImg }
+      };
+    }
+    await setDoc(doc(db, "progress", elegido.uid), { sumas: { sim } }, { merge: true });
+
+    // 3) Registro para el historial (al final: solo queda si la nota sí se aplicó)
+    const registro = {
+      tipo: "recuperacion_nota", modulo: "sumas-simulador", uid: elegido.uid, email: elegido.email, nombre: elegido.name,
+      sucursal: elegido.branch, cargo: elegido.position, motivo: $("motivo").value.trim(),
+      misiones: Object.fromEntries(aplicar.map(x => [x.id, { nota: x.nota, previo: x.previo, fechaHecha: x.fecha }])),
+      omitidas: p.filter(x => x.estado === "omitir").map(x => x.id),
+      evidencia: { coleccion: colImg, id: id + "_img" }, creadoEn: ahora, creadoPor: admin
+    };
+    const colReg = await guardarEnColeccion(id, registro);
+    Object.assign(simActual, sim);
+    $("gMsg").className = "msg ok";
+    $("gMsg").innerHTML = `✅ Nota recuperada para <b>${esc(elegido.name || elegido.email)}</b>. La verá la próxima vez que entre a la Academia.` +
+      (colReg !== COLECCIONES[0] ? `<br><small>La evidencia se guardó en <code>${colReg}</code> porque las reglas no permiten <code>${COLECCIONES[0]}</code>.</small>` : "");
+    document.querySelectorAll("#tbMis input").forEach(i => i.value = "");
+    evidencia = null; $("prev").classList.add("hide"); drop.classList.remove("hide");
+    pintarMisiones();
+  } catch(e) {
+    $("gMsg").className = "msg e";
+    $("gMsg").textContent = "No se pudo guardar: " + friendly(e) + ". Revisa en la tabla de arriba si la nota cambió antes de reintentar.";
+    console.error(e);
+  }
+  guardando = false; revisar();
+};
+
+/* ───── Historial ───── */
+async function cargarHistorial(){
+  const filas = [];
+  for (const col of COLECCIONES) {
+    try {
+      const snap = await getDocs(query(collection(db, col), where("tipo", "==", "recuperacion_nota")));
+      snap.forEach(d => filas.push({ id: d.id, ...d.data() }));
+    } catch(e) { /* colección sin permiso o inexistente */ }
+  }
+  filas.sort((a,b) => String(b.creadoEn).localeCompare(String(a.creadoEn)));
+  const nom = Object.fromEntries(MISIONES);
+  $("tbHist").innerHTML = filas.map(r => `<tr>
+      <td>${esc(fmt(r.creadoEn))}</td>
+      <td><b>${esc(r.nombre || r.email)}</b><div class="aviso" style="color:var(--muted)">${esc(r.email)}</div></td>
+      <td>${esc(r.sucursal || "")}</td>
+      <td>${Object.entries(r.misiones || {}).map(([k,v]) => `${esc(nom[k] || k)}: <b>${esc(v.nota)} %</b>`).join("<br>")}</td>
+      <td>${esc(r.creadoPor || "")}</td>
+      <td><button class="sec" data-ev="${esc(r.evidencia?.coleccion || "")}|${esc(r.evidencia?.id || "")}" data-t="${esc(r.nombre || r.email)}">Ver evidencia</button></td>
+    </tr>`).join("") || `<tr><td colspan="6" style="color:var(--muted)">Todavía no hay notas recuperadas.</td></tr>`;
+}
+$("tbHist").onclick = async e => {
+  const b = e.target.closest("[data-ev]"); if (!b) return;
+  const [col, id] = b.dataset.ev.split("|");
+  $("modalT").textContent = "Evidencia · " + b.dataset.t;
+  $("modalB").innerHTML = "Cargando…"; $("modal").classList.remove("hide");
+  try {
+    const d = await getDoc(doc(db, col, id));
+    $("modalB").innerHTML = d.exists() && d.data().imagen ? `<img src="${d.data().imagen}" alt="Evidencia">` : "No se encontró la imagen.";
+  } catch(err) { $("modalB").textContent = "No se pudo cargar: " + friendly(err); }
+};
+$("modalX").onclick = () => $("modal").classList.add("hide");
+$("modal").onclick = e => { if (e.target.id === "modal") $("modal").classList.add("hide"); };
+</script>
+</body>
+</html>
