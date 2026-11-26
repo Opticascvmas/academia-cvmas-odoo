@@ -7543,5 +7543,51 @@ function cvpBotToggleMic(){
   document.addEventListener('visibilitychange', function(){ if (document.hidden && simAbierto()) guardarYa(); });
 })();
 </script>
+<!-- ═══ ENLACE DIRECTO A HERRAMIENTAS: ?modulo=…&herramienta=…&ancla=… ═══
+     Lo usan los botones de Odoo y la guardia de sesión (js/guardia-herramientas.js):
+     si alguien abre una herramienta sin iniciar sesión, la guardia lo manda aquí; al entrar,
+     se abre el módulo y encima la herramienta, para que la nota quede a su nombre en Firebase. -->
+<script>
+(function(){
+  var HERRAMIENTAS = {
+    simulador:  function(a){ window.abrirSumas('simulador', a); },
+    videos:     function(a){ window.abrirSumas('videos', a); },
+    guia:       function(a){ window.abrirSumas('guia', a); },
+    anatomia:   function(){ window.abrirSimuladorOjo(); },
+    ametropias: function(){ abrirSimuladorAmetropias(); },
+    recetas:    function(){ window.abrirSimuladorRecetas(); },
+    odoo:       function(){ window.abrirSimuladorOdoo(); },
+    espesores:  function(){ window.abrirEspesores(); },
+    'control-miopia': function(){ window.abrirSimuladorMiopia(); },
+    english:    function(a, p){ window.abrirEnglishLab(p.nivel != null ? Number(p.nivel) : 1); },
+    objeciones: function(a, p){
+      var q = []; Object.keys(p).forEach(function(k){ q.push(encodeURIComponent(k) + '=' + encodeURIComponent(p[k])); });
+      window.abrirSimuladorObjeciones(q.join('&'));
+    }
+  };
+  var original = window.abrirModuloDesdeEnlace;
+  window.abrirModuloDesdeEnlace = function(){
+    var h = null, ancla = '', extra = {};
+    try {
+      var sp = new URLSearchParams(location.search);
+      h = sp.get('herramienta'); ancla = sp.get('ancla') || '';
+      sp.forEach(function(v, k){ if (k.indexOf('h_') === 0) extra[k.slice(2)] = v; });
+      // Quitar los parámetros de la herramienta de la barra (?modulo= lo quita la función original)
+      var url = new URL(location.href);
+      ['herramienta', 'ancla'].concat(Object.keys(extra).map(function(k){ return 'h_' + k; }))
+        .forEach(function(k){ url.searchParams.delete(k); });
+      history.replaceState(null, '', url.pathname + url.search + url.hash);
+    } catch(e) {}
+    var r;
+    try { r = original && original.apply(this, arguments); } catch(e) { console.error(e); }
+    if (h && HERRAMIENTAS[h]) {
+      setTimeout(function(){
+        try { HERRAMIENTAS[h](ancla, extra); } catch(e) { console.error('No se pudo abrir la herramienta ' + h, e); }
+      }, 350);
+    }
+    return r;
+  };
+})();
+</script>
 </body>
 </html>
