@@ -416,6 +416,7 @@ $("btnGuardar").onclick = async () => {
   const admin = (auth.currentUser?.email || "").toLowerCase();
   const ahora = new Date().toISOString();
   const id = "rec_" + Date.now() + "_" + elegido.uid.slice(0, 6);
+  let paso = "guardar la evidencia (recuperaciones_notas / admin_logs)";
   try {
     // 1) Evidencia (documento aparte, para no hacer pesado el progreso del colaborador)
     const colImg = await guardarEnColeccion(id + "_img", {
@@ -423,6 +424,7 @@ $("btnGuardar").onclick = async () => {
     });
     // 2) Nota en el progreso del colaborador: progress/{uid} → sumas.sim.{mision}
     //    (merge: solo toca las misiones recuperadas; no borra nada más)
+    paso = "guardar la nota en progress/" + elegido.uid;
     const sim = {};
     for (const x of aplicar) {
       const r = simActual[x.id] || {};
@@ -434,6 +436,7 @@ $("btnGuardar").onclick = async () => {
     }
     await setDoc(doc(db, "progress", elegido.uid), { sumas: { sim } }, { merge: true });
 
+    paso = "guardar el registro del historial";
     // 3) Registro para el historial (al final: solo queda si la nota sí se aplicó)
     const registro = {
       tipo: "recuperacion_nota", modulo: "sumas-simulador", uid: elegido.uid, email: elegido.email, nombre: elegido.name,
@@ -452,7 +455,7 @@ $("btnGuardar").onclick = async () => {
     pintarMisiones();
   } catch(e) {
     $("gMsg").className = "msg e";
-    $("gMsg").textContent = "No se pudo guardar: " + friendly(e) + ". Revisa en la tabla de arriba si la nota cambió antes de reintentar.";
+    $("gMsg").textContent = "No se pudo " + paso + ": " + friendly(e) + ". Revisa en la tabla de arriba si la nota cambió antes de reintentar.";
     console.error(e);
   }
   guardando = false; revisar();
