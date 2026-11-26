@@ -176,6 +176,8 @@ input.inp{font:500 14px var(--f);border:1.5px solid var(--linea);border-radius:1
 .hide{display:none!important}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
+<!-- Guardia de sesión: si se abre fuera de la Academia, pide iniciar sesión (js/guardia-herramientas.js) -->
+<script src="../js/guardia-herramientas.js" data-herramienta="simulador" data-modulo="sumas"></script>
 </head>
 <body>
 
@@ -728,16 +730,20 @@ function resumenPres(p){
 /* ======================= avance fuera de la Academia ======================= */
 // Si el simulador se abrió solo (sin la Academia), las misiones quedan únicamente en este navegador.
 // 1) Se avisa con una franja para que la persona entre por la Academia.
-// 2) Cuando lo vuelve a abrir desde la Academia en el mismo navegador, las misiones guardadas aquí
-//    que la Academia no tiene (o tiene con nota menor) se suben solas con su mejor nota.
+// 2) (Desactivado) Antes se subían solas al abrirlo desde la Academia en el mismo navegador; ver abajo.
 (function(){
   var a=ACAD();
   if(!a){
     var b=D.createElement('div'); b.className='fuera'; b.setAttribute('role','alert');
-    b.innerHTML='<b>⚠️ Estás usando el simulador fuera de la Academia CV+.</b> Tus misiones solo quedan en este navegador y <b>no le llegan a Capacitación</b>. Para que cuenten, entra a la Academia (desde Odoo) → módulo <b>SUMÁS</b> → <b>Simulador</b>. Si ya hiciste misiones aquí, se subirán solas la próxima vez que abras el simulador desde la Academia en este mismo equipo.';
+    b.innerHTML='<b>⚠️ Estás usando el simulador fuera de la Academia CV+.</b> Tus misiones solo quedan en este navegador y <b>no le llegan a Capacitación</b>. Para que cuenten, entra a la Academia (desde Odoo) → módulo <b>SUMÁS</b> → <b>Simulador</b>. Si ya hiciste misiones aquí, toma captura de tus notas y envíala a Capacitación para que te las reconozcan.';
     var fr=D.querySelector('.franja'); if(fr&&fr.parentNode) fr.parentNode.insertBefore(b,fr.nextSibling); else D.body.insertBefore(b,D.body.firstChild);
     return;
   }
+  // Desactivado (nov 2026): en iPads compartidos, las misiones hechas sin sesión se le subían
+  // a la PRÓXIMA persona que abriera el simulador en ese equipo (no necesariamente a quien las hizo).
+  // Ahora la guardia de sesión las muestra para que la persona envíe captura y Capacitación
+  // las recupera desde herramientas/recuperar-notas-sumas.html con evidencia.
+  return;
   var loc=lsG('sumas-sim-res'); if(!loc) return;
   var subidas=0;
   MIS.forEach(function(m){
